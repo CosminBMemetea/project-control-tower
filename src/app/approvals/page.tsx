@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { setManagerApproval } from "@/lib/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import { ControlledCheckbox } from "@/components/controlled-checkbox";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,9 +55,9 @@ export default async function ApprovalsPage() {
                     <input type="hidden" name="id" value={approval.id} />
                     <input type="hidden" name="code" value={project.code} />
                     <label className="flex items-center gap-2 w-44 shrink-0 text-sm font-medium">
-                      <Checkbox
+                      <ControlledCheckbox
                         name="approved"
-                        defaultChecked={approval.approved}
+                        checked={approval.approved}
                       />
                       {approval.managerName}
                     </label>

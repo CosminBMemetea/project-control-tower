@@ -5,7 +5,7 @@ import { GoalProgressForm } from "@/components/goal-progress-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { ControlledCheckbox } from "@/components/controlled-checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -83,7 +83,7 @@ export default async function CompliancePage({
             <Input name="description" placeholder="Compliance check description" />
             <Input name="deviationNote" placeholder="Deviation note (optional)" />
             <label className="flex items-center gap-2 text-sm">
-              <Checkbox name="compliant" defaultChecked />
+              <ControlledCheckbox name="compliant" checked />
               Compliant
             </label>
             <Button type="submit" size="sm">

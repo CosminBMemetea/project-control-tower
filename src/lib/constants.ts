@@ -53,6 +53,16 @@ export const GOAL_LEVEL_COLORS: Record<number, string> = {
   120: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
 };
 
+export const STRUCTURE_HIERARCHY_ITEMS = [
+  { field: "epicsPlanned", label: "Epics per year planned" },
+  { field: "userStoriesPlanned", label: "User Stories per quarter planned" },
+  { field: "tasksPlanned", label: "Tasks per sprint planned" },
+  {
+    field: "sprintsDefined",
+    label: "4 Sprints per quarter defined, each with a Sprint Goal",
+  },
+] as const;
+
 export const CHECKLIST_QUESTIONS = [
   "Is the project's Git repository up to date and accessible to all team members?",
   "Is the CodeBeamer feature/project link current and reflecting the latest scope?",

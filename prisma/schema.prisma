@@ -27,12 +27,19 @@ model Project {
   envSetupDocUrl     String?
   onboardingGuideUrl String?
 
+  // Structure Hierarchy planning checkboxes (Environment & Rules tab)
+  epicsPlanned       Boolean @default(false)
+  userStoriesPlanned Boolean @default(false)
+  tasksPlanned       Boolean @default(false)
+  sprintsDefined     Boolean @default(false)
+
   quarterPresentations QuarterPresentation[]
   teamsMeetings        TeamsMeeting[]
   managerApprovals     ManagerApproval[]
   goalProgress         GoalProgress[]
   checklistSubmissions ChecklistSubmission[]
   complianceChecks     ComplianceCheck[]
+  statusReports        StatusReport[]
 }
 
 // Planning & Tracking: one row per quarter presentation link
@@ -130,6 +137,23 @@ model ChecklistAnswer {
   answer String?
 
   @@unique([submissionId, questionId])
+}
+
+// Periodic status report, collected every Monday and Thursday. Entries
+// can be created/edited retroactively for any past reporting date.
+model StatusReport {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  reportDate DateTime // the Monday/Thursday this report covers
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, reportDate])
 }
 
 // Execution Assurance (RUN): compliance checks + deviations

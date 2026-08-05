@@ -2,51 +2,13 @@ import "dotenv/config";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { CHECKLIST_QUESTIONS, GOAL_TYPES } from "../src/lib/constants";
+import { PROJECTS } from "../config/projects";
+import { APPROVERS } from "../config/approvers";
 
 const adapter = new PrismaBetterSqlite3({
   url: process.env.DATABASE_URL ?? "file:./dev.db",
 });
 const prisma = new PrismaClient({ adapter });
-
-const PROJECTS = [
-  {
-    name: "ATHENA",
-    code: "ATHENA",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/athena/_git/athena",
-  },
-  {
-    name: "Drive Assist LLM",
-    code: "DA-LLM",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/drive-assist-llm/_git/drive-assist-llm",
-  },
-  {
-    name: "Voxel Grid",
-    code: "VOXEL",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/voxel-grid/_git/voxel-grid",
-  },
-  {
-    name: "Radar Camera Fusion Parking",
-    code: "RCF-PARK",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/rcf-parking/_git/rcf-parking",
-  },
-  {
-    name: "Live Range Assessor",
-    code: "LRA",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/live-range-assessor/_git/live-range-assessor",
-  },
-  {
-    name: "USS Replacement",
-    code: "USS-REPL",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/uss-replacement/_git/uss-replacement",
-  },
-  {
-    name: "Gating Imaging",
-    code: "GATING-IMG",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/gating-imaging/_git/gating-imaging",
-  },
-];
-
-const MANAGER_NAMES = ["Manager One", "Manager Two", "Manager Three"];
 
 async function main() {
   console.log("Seeding checklist questions...");
@@ -78,7 +40,7 @@ async function main() {
       });
     }
 
-    for (const managerName of MANAGER_NAMES) {
+    for (const managerName of APPROVERS) {
       const existing = await prisma.managerApproval.findFirst({
         where: { projectId: project.id, managerName },
       });

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { currentReportingPeriod } from "@/lib/period";
-import type { GoalType } from "@/lib/constants";
+import { STRUCTURE_HIERARCHY_ITEMS, type GoalType } from "@/lib/constants";
 
 function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -27,6 +27,22 @@ export async function updateProjectLinks(formData: FormData) {
       envSetupDocUrl: str(formData, "envSetupDocUrl") || null,
       onboardingGuideUrl: str(formData, "onboardingGuideUrl") || null,
     },
+  });
+  revalidateProject(code);
+}
+
+export async function updateStructureHierarchy(formData: FormData) {
+  const projectId = str(formData, "projectId");
+  const code = str(formData, "code");
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: Object.fromEntries(
+      STRUCTURE_HIERARCHY_ITEMS.map((item) => [
+        item.field,
+        formData.get(item.field) === "on",
+      ])
+    ),
   });
   revalidateProject(code);
 }
@@ -152,6 +168,32 @@ export async function submitChecklistAnswers(formData: FormData) {
     data: { submittedAt: new Date() },
   });
 
+  revalidateProject(code);
+}
+
+export async function addOrUpdateStatusReport(formData: FormData) {
+  const projectId = str(formData, "projectId");
+  const code = str(formData, "code");
+  const reportDateStr = str(formData, "reportDate");
+  const notes = str(formData, "notes");
+  if (!reportDateStr) return;
+
+  // Interpreted as UTC midnight so the stored date always matches the
+  // calendar day the user picked, regardless of server timezone.
+  const reportDate = new Date(`${reportDateStr}T00:00:00.000Z`);
+
+  await prisma.statusReport.upsert({
+    where: { projectId_reportDate: { projectId, reportDate } },
+    update: { notes: notes || null },
+    create: { projectId, reportDate, notes: notes || null },
+  });
+  revalidateProject(code);
+}
+
+export async function deleteStatusReport(formData: FormData) {
+  const id = str(formData, "id");
+  const code = str(formData, "code");
+  await prisma.statusReport.delete({ where: { id } });
   revalidateProject(code);
 }
 

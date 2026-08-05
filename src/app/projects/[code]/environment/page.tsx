@@ -1,12 +1,17 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { updateProjectLinks, setManagerApproval } from "@/lib/actions";
+import {
+  updateProjectLinks,
+  setManagerApproval,
+  updateStructureHierarchy,
+} from "@/lib/actions";
+import { STRUCTURE_HIERARCHY_ITEMS } from "@/lib/constants";
 import { GoalProgressForm } from "@/components/goal-progress-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { ControlledCheckbox } from "@/components/controlled-checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -80,11 +85,30 @@ export default async function EnvironmentPage({
             Structure Hierarchy (visible in the UI)
           </CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-1">
-          <p>Epics → per year</p>
-          <p>User Stories → per quarter</p>
-          <p>Tasks → per sprint</p>
-          <p>4 Sprints per Quarter — each with a Sprint Goal and assigned tasks</p>
+        <CardContent>
+          <p className="text-xs text-muted-foreground mb-3">
+            Epics → per year · User Stories → per quarter · Tasks → per
+            sprint · 4 Sprints per Quarter, each with a Sprint Goal
+          </p>
+          <form action={updateStructureHierarchy} className="space-y-3">
+            <input type="hidden" name="projectId" value={project.id} />
+            <input type="hidden" name="code" value={project.code} />
+            {STRUCTURE_HIERARCHY_ITEMS.map((item) => (
+              <label
+                key={item.field}
+                className="flex items-center gap-2 text-sm"
+              >
+                <ControlledCheckbox
+                  name={item.field}
+                  checked={project[item.field]}
+                />
+                {item.label}
+              </label>
+            ))}
+            <Button type="submit" size="sm">
+              Save Planning Status
+            </Button>
+          </form>
         </CardContent>
       </Card>
 
@@ -107,7 +131,7 @@ export default async function EnvironmentPage({
               <input type="hidden" name="id" value={approval.id} />
               <input type="hidden" name="code" value={project.code} />
               <label className="flex items-center gap-2 w-44 shrink-0 text-sm font-medium">
-                <Checkbox name="approved" defaultChecked={approval.approved} />
+                <ControlledCheckbox name="approved" checked={approval.approved} />
                 {approval.managerName}
               </label>
               <Input
