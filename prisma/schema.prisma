@@ -1,0 +1,146 @@
+// R&I Control Tower — Prisma schema
+// Draft schema matching the proposed data model. Replace with the
+// user-provided schema when available.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Project {
+  id     String @id @default(cuid())
+  name   String
+  code   String @unique
+  status String @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Environment Setup & Rules for R&I
+  gitRepoUrl         String?
+  codebeamerUrl       String?
+  wowPresentationUrl String?
+  envSetupDocUrl     String?
+  onboardingGuideUrl String?
+
+  quarterPresentations QuarterPresentation[]
+  teamsMeetings        TeamsMeeting[]
+  managerApprovals     ManagerApproval[]
+  goalProgress         GoalProgress[]
+  checklistSubmissions ChecklistSubmission[]
+  complianceChecks     ComplianceCheck[]
+}
+
+// Planning & Tracking: one row per quarter presentation link
+model QuarterPresentation {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  quarter String // e.g. "2026-Q1"
+  url     String
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, quarter])
+}
+
+// Meeting Map & Cadence
+model TeamsMeeting {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  type  String // WEEKLY | SPRINT_REVIEW | RETRO | OTHER
+  label String? // custom name, mainly for OTHER
+  url   String
+
+  lastOccurredAt DateTime?
+}
+
+// 120% Business Innovation Process approval
+model ManagerApproval {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  managerName String
+  approved    Boolean   @default(false)
+  approvedAt  DateTime?
+  comment     String?
+}
+
+// Cumulative coverage level (0, 25, 50, 75, 100, 120) per goal track
+model GoalProgress {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  goalType    String // ENVIRONMENT_SETUP | PLANNING_TRACKING | MEETING_CADENCE | REPORTING_CHECKLIST | PERIODIC_REPORTING | EXECUTION_ASSURANCE
+  level       Int    @default(0) // 0 | 25 | 50 | 75 | 100 | 120
+  evidenceUrl String?
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, goalType])
+}
+
+// The 10 reporting-checklist questions, stored once, shared across projects
+model ChecklistQuestion {
+  id    String @id @default(cuid())
+  order Int    @unique
+  text  String
+
+  answers ChecklistAnswer[]
+}
+
+// One "Send Checklist" event for a project + period
+model ChecklistSubmission {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  period String // e.g. "2026-Q1" or "2026-08"
+  sentTo String // SELF | TEAM
+
+  sentAt      DateTime  @default(now())
+  submittedAt DateTime?
+
+  answers ChecklistAnswer[]
+}
+
+model ChecklistAnswer {
+  id String @id @default(cuid())
+
+  submissionId String
+  submission   ChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   ChecklistQuestion @relation(fields: [questionId], references: [id])
+
+  answer String?
+
+  @@unique([submissionId, questionId])
+}
+
+// Execution Assurance (RUN): compliance checks + deviations
+model ComplianceCheck {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  description   String
+  compliant     Boolean  @default(true)
+  checkedAt     DateTime @default(now())
+  deviationNote String?
+}
