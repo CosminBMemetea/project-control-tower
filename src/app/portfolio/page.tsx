@@ -10,6 +10,7 @@ import {
 } from "@/lib/constants";
 import { currentQuarter } from "@/lib/period";
 import { computeMeetingStatus } from "@/lib/meeting-status";
+import { computeChecklistStatus } from "@/lib/checklist-status";
 import { GoalBadge } from "@/components/goal-badge";
 import { GoalLevelSelect } from "@/components/goal-level-select";
 import {
@@ -30,6 +31,7 @@ export default async function PortfolioPage() {
       quarterPresentations: true,
       teamsMeetings: true,
       managerApprovals: true,
+      checklistSubmissions: true,
     },
     orderBy: { name: "asc" },
   });
@@ -70,6 +72,9 @@ export default async function PortfolioPage() {
     }
     if (!p.managerApprovals.every((a) => a.approved)) {
       issues.push("120% approval incomplete");
+    }
+    if (computeChecklistStatus(p.checklistSubmissions) !== "ACTIVE") {
+      issues.push("Reporting Checklist verification overdue");
     }
     return issues.map((issue) => ({ project: p, issue }));
   });

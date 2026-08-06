@@ -293,9 +293,10 @@ export async function deleteTeamsMeeting(formData: FormData) {
   revalidateProject(code);
 }
 
-// Creates the submission, emails the recipient a link to
-// /checklist-response/[token] (no login needed — the token is the
-// credential), and reports back whether the email actually went out.
+// Creates the submission and its response link. If SMTP is configured
+// (optional — see .env), also emails it automatically; otherwise the
+// Submission History row's "Copy link" / "Email" (mailto:) buttons are
+// the primary way to get it to the recipient, no configuration needed.
 export async function sendChecklist(formData: FormData): Promise<ActionResult> {
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
@@ -312,7 +313,15 @@ export async function sendChecklist(formData: FormData): Promise<ActionResult> {
     data: { projectId, recipientEmail, token },
   });
 
-  const link = `${getAppBaseUrl()}/checklist-response/${token}`;
+  revalidateProject(code);
+
+  if (!process.env.SMTP_HOST) {
+    return {
+      info: "Checklist created — use Copy link or Email below to send it.",
+    };
+  }
+
+  const link = `${await getAppBaseUrl()}/checklist-response/${token}`;
   const result = await sendEmail({
     to: recipientEmail,
     subject: `Reporting Checklist — ${project.name}`,
@@ -323,13 +332,11 @@ export async function sendChecklist(formData: FormData): Promise<ActionResult> {
     `,
   });
 
-  revalidateProject(code);
-
   if (result.sent) {
-    return { info: `Sent to ${recipientEmail}.` };
+    return { info: `Emailed to ${recipientEmail}.` };
   }
   return {
-    info: `Checklist created, but the email wasn't sent (${result.reason}). Copy the link from Submission History below and share it manually.`,
+    info: `Checklist created, but the automatic email failed (${result.reason}). Use Copy link or Email below instead.`,
   };
 }
 

@@ -2,14 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { sendChecklist } from "@/lib/actions";
-import { CHECKLIST_VERIFICATION_DAYS } from "@/lib/constants";
+import { CHECKLIST_QUESTIONS, CHECKLIST_VERIFICATION_DAYS } from "@/lib/constants";
 import { computeChecklistStatus } from "@/lib/checklist-status";
+import { getAppBaseUrl } from "@/lib/email";
+import { buildMailto } from "@/lib/mailto";
 import { GoalProgressForm } from "@/components/goal-progress-form";
 import { ChecklistStatusBadge } from "@/components/checklist-status-badge";
 import { ActionForm } from "@/components/action-form";
+import { CopyLinkButton } from "@/components/copy-link-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -40,6 +43,7 @@ export default async function ChecklistPage({
 
   if (!project) notFound();
 
+  const baseUrl = await getAppBaseUrl();
   const goal = project.goalProgress[0];
   const status = computeChecklistStatus(project.checklistSubmissions);
   const lastSubmitted = project.checklistSubmissions
@@ -54,9 +58,11 @@ export default async function ChecklistPage({
             Send Reporting Checklist
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Sent by email to any address — yourself or a team member. They
-            answer via a link, no account needed, and it&apos;s collected
-            back here.
+            For any email address — yourself or a team member. Creates a
+            link below you can copy or open in your email app; if SMTP is
+            configured it&apos;s also emailed automatically. They answer
+            via the link, no account needed, and it&apos;s collected back
+            here.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -83,7 +89,7 @@ export default async function ChecklistPage({
               />
             </div>
             <Button type="submit" size="sm">
-              Send
+              Create Checklist
             </Button>
           </ActionForm>
         </CardContent>
@@ -130,34 +136,51 @@ export default async function ChecklistPage({
                   <TableHead>Sent</TableHead>
                   <TableHead>Recipient</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Link</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {project.checklistSubmissions.map((sub) => (
-                  <TableRow key={sub.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {new Date(sub.sentAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>{sub.recipientEmail}</TableCell>
-                    <TableCell>
-                      <Badge variant={sub.submittedAt ? "default" : "outline"}>
-                        {sub.submittedAt
-                          ? `Answered ${new Date(sub.submittedAt).toLocaleDateString()}`
-                          : "Awaiting answers"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link
-                        href={`/checklist-response/${sub.token}`}
-                        target="_blank"
-                        className="text-xs text-primary underline"
-                      >
-                        Open
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {project.checklistSubmissions.map((sub) => {
+                  const link = `${baseUrl}/checklist-response/${sub.token}`;
+                  const mailto = buildMailto({
+                    to: sub.recipientEmail,
+                    subject: `Reporting Checklist — ${project.name}`,
+                    body: `Hi,\n\nCould you fill in the Reporting Checklist for ${project.name}?\n\n${link}\n\nIt covers ${CHECKLIST_QUESTIONS.length} short questions on status, risks, and dependencies — should take a few minutes.\n\nThanks!`,
+                  });
+                  return (
+                    <TableRow key={sub.id}>
+                      <TableCell className="whitespace-nowrap">
+                        {new Date(sub.sentAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>{sub.recipientEmail}</TableCell>
+                      <TableCell>
+                        <Badge variant={sub.submittedAt ? "default" : "outline"}>
+                          {sub.submittedAt
+                            ? `Answered ${new Date(sub.submittedAt).toLocaleDateString()}`
+                            : "Awaiting answers"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end items-center gap-1">
+                          <Link
+                            href={`/checklist-response/${sub.token}`}
+                            target="_blank"
+                            className="text-xs text-primary underline px-2"
+                          >
+                            Open
+                          </Link>
+                          <CopyLinkButton link={link} />
+                          <a
+                            href={mailto}
+                            className={buttonVariants({ variant: "ghost", size: "sm" })}
+                          >
+                            Email
+                          </a>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

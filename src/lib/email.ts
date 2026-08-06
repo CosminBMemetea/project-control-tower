@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { headers } from "next/headers";
 
 // Generic SMTP so this works with whatever mail relay is available
 // (Office 365, Gmail, an internal relay) — nothing vendor-specific.
@@ -19,8 +20,26 @@ function getTransporter() {
   });
 }
 
-export function getAppBaseUrl(): string {
-  return (process.env.APP_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+// Prefers an explicitly configured APP_BASE_URL (needed once this is
+// deployed somewhere with a domain), but falls back to the host that
+// actually served the current request — so links are correct out of the
+// box in local dev without any setup, on whatever port it happens to run.
+export async function getAppBaseUrl(): Promise<string> {
+  if (process.env.APP_BASE_URL) {
+    return process.env.APP_BASE_URL.replace(/\/$/, "");
+  }
+  try {
+    const h = await headers();
+    const host = h.get("host");
+    if (host) {
+      const proto =
+        h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+      return `${proto}://${host}`;
+    }
+  } catch {
+    // headers() isn't available outside a request context
+  }
+  return "http://localhost:3000";
 }
 
 export type SendEmailResult =
