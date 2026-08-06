@@ -12,6 +12,7 @@ import { GoalProgressForm } from "@/components/goal-progress-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalBadge } from "@/components/goal-badge";
 import { Input } from "@/components/ui/input";
+import { ControlledInput } from "@/components/controlled-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -127,7 +128,7 @@ export default async function ReportingPage({
               <label className="text-xs text-muted-foreground">
                 Report date (any past or current Monday/Thursday)
               </label>
-              <Input
+              <ControlledInput
                 type="date"
                 name="reportDate"
                 defaultValue={defaultReportDate}

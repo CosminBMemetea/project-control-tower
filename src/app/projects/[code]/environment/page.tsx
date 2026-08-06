@@ -1,17 +1,14 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import {
-  updateProjectLinks,
-  setManagerApproval,
-  updateStructureHierarchy,
-} from "@/lib/actions";
+import { updateProjectLinks } from "@/lib/actions";
 import { STRUCTURE_HIERARCHY_ITEMS } from "@/lib/constants";
 import { GoalProgressForm } from "@/components/goal-progress-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { ControlledInput } from "@/components/controlled-input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { ControlledCheckbox } from "@/components/controlled-checkbox";
+import { StructureHierarchyCheckbox } from "@/components/structure-hierarchy-checkbox";
+import { ManagerApprovalRow } from "@/components/manager-approval-row";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -64,7 +61,7 @@ export default async function EnvironmentPage({
             {LINK_FIELDS.map((field) => (
               <div key={field.key} className="grid gap-1.5">
                 <Label htmlFor={field.key}>{field.label}</Label>
-                <Input
+                <ControlledInput
                   id={field.key}
                   name={field.key}
                   defaultValue={project[field.key] ?? ""}
@@ -90,25 +87,25 @@ export default async function EnvironmentPage({
             Epics → per year · User Stories → per quarter · Tasks → per
             sprint · 4 Sprints per Quarter, each with a Sprint Goal
           </p>
-          <form action={updateStructureHierarchy} className="space-y-3">
-            <input type="hidden" name="projectId" value={project.id} />
-            <input type="hidden" name="code" value={project.code} />
+          <div className="space-y-3">
             {STRUCTURE_HIERARCHY_ITEMS.map((item) => (
               <label
                 key={item.field}
                 className="flex items-center gap-2 text-sm"
               >
-                <ControlledCheckbox
-                  name={item.field}
+                <StructureHierarchyCheckbox
+                  projectId={project.id}
+                  code={project.code}
+                  field={item.field}
                   checked={project[item.field]}
                 />
                 {item.label}
               </label>
             ))}
-            <Button type="submit" size="sm">
-              Save Planning Status
-            </Button>
-          </form>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            Saved automatically as you check each item.
+          </p>
         </CardContent>
       </Card>
 
@@ -123,32 +120,15 @@ export default async function EnvironmentPage({
         </CardHeader>
         <CardContent className="space-y-3">
           {project.managerApprovals.map((approval) => (
-            <form
+            <ManagerApprovalRow
               key={approval.id}
-              action={setManagerApproval}
-              className="flex flex-wrap items-center gap-3 border-b pb-3 last:border-0 last:pb-0"
-            >
-              <input type="hidden" name="id" value={approval.id} />
-              <input type="hidden" name="code" value={project.code} />
-              <label className="flex items-center gap-2 w-44 shrink-0 text-sm font-medium">
-                <ControlledCheckbox name="approved" checked={approval.approved} />
-                {approval.managerName}
-              </label>
-              <Input
-                name="comment"
-                placeholder="Optional comment"
-                defaultValue={approval.comment ?? ""}
-                className="flex-1 min-w-40"
-              />
-              <span className="text-xs text-muted-foreground w-32 shrink-0">
-                {approval.approvedAt
-                  ? new Date(approval.approvedAt).toLocaleDateString()
-                  : "Not approved"}
-              </span>
-              <Button type="submit" size="sm" variant="outline">
-                Save
-              </Button>
-            </form>
+              id={approval.id}
+              code={project.code}
+              managerName={approval.managerName}
+              approved={approval.approved}
+              approvedAt={approval.approvedAt}
+              comment={approval.comment}
+            />
           ))}
         </CardContent>
       </Card>

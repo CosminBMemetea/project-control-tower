@@ -1,10 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { setManagerApproval } from "@/lib/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ControlledCheckbox } from "@/components/controlled-checkbox";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { ManagerApprovalRow } from "@/components/manager-approval-row";
 import { Badge } from "@/components/ui/badge";
 
 export default async function ApprovalsPage() {
@@ -47,35 +44,15 @@ export default async function ApprovalsPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {project.managerApprovals.map((approval) => (
-                  <form
+                  <ManagerApprovalRow
                     key={approval.id}
-                    action={setManagerApproval}
-                    className="flex flex-wrap items-center gap-3 border-b pb-3 last:border-0 last:pb-0"
-                  >
-                    <input type="hidden" name="id" value={approval.id} />
-                    <input type="hidden" name="code" value={project.code} />
-                    <label className="flex items-center gap-2 w-44 shrink-0 text-sm font-medium">
-                      <ControlledCheckbox
-                        name="approved"
-                        checked={approval.approved}
-                      />
-                      {approval.managerName}
-                    </label>
-                    <Input
-                      name="comment"
-                      placeholder="Optional comment"
-                      defaultValue={approval.comment ?? ""}
-                      className="flex-1 min-w-40"
-                    />
-                    <span className="text-xs text-muted-foreground w-32 shrink-0">
-                      {approval.approvedAt
-                        ? new Date(approval.approvedAt).toLocaleDateString()
-                        : "Not approved"}
-                    </span>
-                    <Button type="submit" size="sm" variant="outline">
-                      Save
-                    </Button>
-                  </form>
+                    id={approval.id}
+                    code={project.code}
+                    managerName={approval.managerName}
+                    approved={approval.approved}
+                    approvedAt={approval.approvedAt}
+                    comment={approval.comment}
+                  />
                 ))}
               </CardContent>
             </Card>

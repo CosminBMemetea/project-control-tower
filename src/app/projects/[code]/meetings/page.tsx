@@ -1,16 +1,19 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { addTeamsMeeting } from "@/lib/actions";
 import {
-  addTeamsMeeting,
-  markMeetingOccurred,
-  deleteTeamsMeeting,
-} from "@/lib/actions";
-import { MEETING_TYPES, MEETING_TYPE_LABELS } from "@/lib/constants";
+  CORE_MEETING_TYPES,
+  MEETING_TYPE_LABELS,
+  WEEKDAYS,
+  WEEKDAY_LABELS,
+} from "@/lib/constants";
+import { computeMeetingStatus, type MeetingStatus } from "@/lib/meeting-status";
 import { GoalProgressForm } from "@/components/goal-progress-form";
+import { MeetingCard } from "@/components/meeting-card";
+import { MeetingStatusBadge } from "@/components/meeting-status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
 export default async function MeetingsPage({
@@ -30,103 +33,120 @@ export default async function MeetingsPage({
   if (!project) notFound();
 
   const goal = project.goalProgress[0];
-  const coreTypes = ["WEEKLY", "SPRINT_REVIEW", "RETRO"];
-  const healthy = coreTypes.every((t) =>
-    project.teamsMeetings.some((m) => m.type === t)
-  );
+
+  const coreMeetings = CORE_MEETING_TYPES.map((type) => ({
+    type,
+    title: MEETING_TYPE_LABELS[type],
+    meeting: project.teamsMeetings.find((m) => m.type === type) ?? null,
+  }));
+  const customMeetings = project.teamsMeetings.filter((m) => m.type === "OTHER");
+
+  const allStatuses: MeetingStatus[] = [
+    ...coreMeetings.map((m) => computeMeetingStatus(m.meeting)),
+    ...customMeetings.map((m) => computeMeetingStatus(m)),
+  ];
+  const summary = {
+    ACTIVE: allStatuses.filter((s) => s === "ACTIVE").length,
+    MISSING: allStatuses.filter((s) => s === "MISSING").length,
+    NEEDS_UPDATE: allStatuses.filter((s) => s === "NEEDS_UPDATE").length,
+  };
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">Meeting Map & Cadence</CardTitle>
-          <Badge variant={healthy ? "default" : "outline"}>
-            {healthy ? "Cadence healthy" : "Cadence incomplete"}
-          </Badge>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            {project.teamsMeetings.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No recurring meetings linked yet.
-              </p>
-            )}
-            {project.teamsMeetings.map((m) => (
-              <div
-                key={m.id}
-                className="flex items-center justify-between gap-3 border-b pb-2 last:border-0 last:pb-0"
-              >
-                <div className="text-sm">
-                  <span className="font-medium">
-                    {MEETING_TYPE_LABELS[m.type as keyof typeof MEETING_TYPE_LABELS] ??
-                      m.type}
-                    {m.label ? ` — ${m.label}` : ""}
-                  </span>{" "}
-                  <a
-                    href={m.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-muted-foreground hover:text-foreground hover:underline"
-                  >
-                    Join in Teams
-                  </a>
-                  <div className="text-xs text-muted-foreground">
-                    Last occurred:{" "}
-                    {m.lastOccurredAt
-                      ? new Date(m.lastOccurredAt).toLocaleDateString()
-                      : "never logged"}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <form action={markMeetingOccurred}>
-                    <input type="hidden" name="id" value={m.id} />
-                    <input type="hidden" name="code" value={project.code} />
-                    <Button type="submit" size="sm" variant="outline">
-                      Mark occurred
-                    </Button>
-                  </form>
-                  <form action={deleteTeamsMeeting}>
-                    <input type="hidden" name="id" value={m.id} />
-                    <input type="hidden" name="code" value={project.code} />
-                    <Button type="submit" size="sm" variant="ghost">
-                      Remove
-                    </Button>
-                  </form>
-                </div>
-              </div>
-            ))}
+          <div>
+            <CardTitle className="text-base">Meeting Map</CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              The full communication plan for this project — every recurring
+              meeting, its Teams link, schedule, and status, visible to
+              stakeholders at a glance.
+            </p>
           </div>
+          <div className="flex gap-1.5 shrink-0">
+            <MeetingStatusBadge status="ACTIVE" />
+            <span className="text-xs text-muted-foreground self-center">
+              {summary.ACTIVE}
+            </span>
+            <MeetingStatusBadge status="NEEDS_UPDATE" />
+            <span className="text-xs text-muted-foreground self-center">
+              {summary.NEEDS_UPDATE}
+            </span>
+            <MeetingStatusBadge status="MISSING" />
+            <span className="text-xs text-muted-foreground self-center">
+              {summary.MISSING}
+            </span>
+          </div>
+        </CardHeader>
+      </Card>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {coreMeetings.map(({ type, title, meeting }) => (
+          <MeetingCard
+            key={type}
+            projectId={project.id}
+            code={project.code}
+            type={type}
+            title={title}
+            meeting={meeting}
+          />
+        ))}
+        {customMeetings.map((m) => (
+          <MeetingCard
+            key={m.id}
+            projectId={project.id}
+            code={project.code}
+            type="OTHER"
+            title={m.label || "Other meeting"}
+            meeting={m}
+          />
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Add Another Meeting</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            For anything beyond the 3 core meetings above — design syncs,
+            steering committees, etc.
+          </p>
+        </CardHeader>
+        <CardContent>
           <form
             action={addTeamsMeeting}
-            className="flex flex-wrap items-end gap-3 pt-2 border-t"
+            className="flex flex-wrap items-end gap-3"
           >
             <input type="hidden" name="projectId" value={project.id} />
             <input type="hidden" name="code" value={project.code} />
+            <input type="hidden" name="type" value="OTHER" />
             <div className="grid gap-1.5">
-              <label className="text-xs text-muted-foreground">Type</label>
-              <select
-                name="type"
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
-              >
-                {MEETING_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {MEETING_TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid gap-1.5">
-              <label className="text-xs text-muted-foreground">
-                Label (optional)
-              </label>
-              <Input name="label" placeholder="e.g. Design sync" className="w-40" />
+              <label className="text-xs text-muted-foreground">Name</label>
+              <Input name="label" placeholder="e.g. Design Sync" className="w-40" />
             </div>
             <div className="grid gap-1.5 flex-1 min-w-48">
               <label className="text-xs text-muted-foreground">
                 Teams link
               </label>
               <Input name="url" placeholder="https://teams.microsoft.com/..." />
+            </div>
+            <div className="grid gap-1.5">
+              <label className="text-xs text-muted-foreground">Day</label>
+              <select
+                name="dayOfWeek"
+                defaultValue=""
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+              >
+                <option value="">—</option>
+                {WEEKDAYS.map((d) => (
+                  <option key={d} value={d}>
+                    {WEEKDAY_LABELS[d]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-1.5">
+              <label className="text-xs text-muted-foreground">Time</label>
+              <Input name="time" placeholder="10:00" className="w-24" />
             </div>
             <Button type="submit" size="sm">
               Add

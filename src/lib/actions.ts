@@ -31,50 +31,78 @@ export async function updateProjectLinks(formData: FormData) {
   revalidateProject(code);
 }
 
-export async function updateStructureHierarchy(formData: FormData) {
-  const projectId = str(formData, "projectId");
-  const code = str(formData, "code");
-
+// Auto-saved from a single checkbox toggle — each Structure Hierarchy
+// item persists independently so toggling one item never discards an
+// unsaved toggle on a sibling item elsewhere on the page.
+export async function setStructureHierarchyField(
+  projectId: string,
+  code: string,
+  field: (typeof STRUCTURE_HIERARCHY_ITEMS)[number]["field"],
+  value: boolean
+) {
   await prisma.project.update({
     where: { id: projectId },
-    data: Object.fromEntries(
-      STRUCTURE_HIERARCHY_ITEMS.map((item) => [
-        item.field,
-        formData.get(item.field) === "on",
-      ])
-    ),
+    data: { [field]: value },
   });
   revalidateProject(code);
 }
 
-export async function setManagerApproval(formData: FormData) {
+// Auto-saved from the approval checkbox itself, independent of the
+// comment field below — same reasoning as setStructureHierarchyField.
+export async function toggleManagerApproval(
+  id: string,
+  code: string,
+  approved: boolean
+) {
+  await prisma.managerApproval.update({
+    where: { id },
+    data: { approved, approvedAt: approved ? new Date() : null },
+  });
+  revalidateProject(code);
+}
+
+export async function updateManagerApprovalComment(formData: FormData) {
   const id = str(formData, "id");
   const code = str(formData, "code");
-  const approved = formData.get("approved") === "on";
   const comment = str(formData, "comment");
 
   await prisma.managerApproval.update({
     where: { id },
-    data: {
-      approved,
-      approvedAt: approved ? new Date() : null,
-      comment: comment || null,
-    },
+    data: { comment: comment || null },
   });
   revalidateProject(code);
 }
 
-export async function upsertGoalProgress(formData: FormData) {
+// Auto-saved the moment the level dropdown changes — used from both the
+// Portfolio Overview grid and the per-project goal tabs, so the "current
+// coverage level" is always a single explicit choice from GOAL_LEVELS,
+// never derived from anything else.
+export async function setGoalLevel(
+  projectId: string,
+  code: string,
+  goalType: GoalType,
+  level: number
+) {
+  await prisma.goalProgress.upsert({
+    where: { projectId_goalType: { projectId, goalType } },
+    update: { level },
+    create: { projectId, goalType, level },
+  });
+  revalidateProject(code);
+}
+
+// Kept independent of setGoalLevel so editing the evidence link can never
+// clobber a level someone just set elsewhere on the same page.
+export async function setGoalEvidenceUrl(formData: FormData) {
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const goalType = str(formData, "goalType") as GoalType;
-  const level = Number(str(formData, "level"));
   const evidenceUrl = str(formData, "evidenceUrl");
 
   await prisma.goalProgress.upsert({
     where: { projectId_goalType: { projectId, goalType } },
-    update: { level, evidenceUrl: evidenceUrl || null },
-    create: { projectId, goalType, level, evidenceUrl: evidenceUrl || null },
+    update: { evidenceUrl: evidenceUrl || null },
+    create: { projectId, goalType, level: 0, evidenceUrl: evidenceUrl || null },
   });
   revalidateProject(code);
 }
@@ -107,10 +135,67 @@ export async function addTeamsMeeting(formData: FormData) {
   const type = str(formData, "type");
   const label = str(formData, "label");
   const url = str(formData, "url");
+  const dayOfWeek = str(formData, "dayOfWeek");
+  const time = str(formData, "time");
   if (!type || !url) return;
 
   await prisma.teamsMeeting.create({
-    data: { projectId, type, label: label || null, url },
+    data: {
+      projectId,
+      type,
+      label: label || null,
+      url,
+      dayOfWeek: dayOfWeek || null,
+      time: time || null,
+    },
+  });
+  revalidateProject(code);
+}
+
+// Add or edit one of the 3 fixed core meeting slots (Weekly/Sprint
+// Review/Retro) for a project — at most one row per (project, type), so
+// this finds the existing row and updates it, or creates it if the slot
+// is currently "Missing".
+export async function upsertCoreMeeting(formData: FormData) {
+  const projectId = str(formData, "projectId");
+  const code = str(formData, "code");
+  const type = str(formData, "type");
+  const url = str(formData, "url");
+  const dayOfWeek = str(formData, "dayOfWeek");
+  const time = str(formData, "time");
+  if (!type || !url) return;
+
+  const existing = await prisma.teamsMeeting.findFirst({
+    where: { projectId, type },
+  });
+
+  const data = {
+    url,
+    dayOfWeek: dayOfWeek || null,
+    time: time || null,
+  };
+
+  if (existing) {
+    await prisma.teamsMeeting.update({ where: { id: existing.id }, data });
+  } else {
+    await prisma.teamsMeeting.create({ data: { projectId, type, ...data } });
+  }
+  revalidateProject(code);
+}
+
+// Edits any existing meeting row by id — used for both core meeting cards
+// and custom ("OTHER") meeting cards, since both already have a stable id.
+export async function updateTeamsMeeting(formData: FormData) {
+  const id = str(formData, "id");
+  const code = str(formData, "code");
+  const url = str(formData, "url");
+  const dayOfWeek = str(formData, "dayOfWeek");
+  const time = str(formData, "time");
+  if (!url) return;
+
+  await prisma.teamsMeeting.update({
+    where: { id },
+    data: { url, dayOfWeek: dayOfWeek || null, time: time || null },
   });
   revalidateProject(code);
 }

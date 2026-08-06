@@ -68,6 +68,9 @@ model TeamsMeeting {
   label String? // custom name, mainly for OTHER
   url   String
 
+  dayOfWeek String? // MONDAY..SUNDAY, for computing the next occurrence
+  time      String? // free-text display value, e.g. "10:00"
+
   lastOccurredAt DateTime?
 }
 

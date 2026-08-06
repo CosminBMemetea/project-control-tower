@@ -1,8 +1,17 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { GOAL_TYPES, GOAL_SHORT_LABELS } from "@/lib/constants";
+import {
+  GOAL_TYPES,
+  GOAL_SHORT_LABELS,
+  GOAL_LEVELS,
+  GOAL_LABELS,
+  CORE_MEETING_TYPES,
+  MEETING_TYPE_LABELS,
+} from "@/lib/constants";
 import { currentQuarter } from "@/lib/period";
+import { computeMeetingStatus } from "@/lib/meeting-status";
 import { GoalBadge } from "@/components/goal-badge";
+import { GoalLevelSelect } from "@/components/goal-level-select";
 import {
   Table,
   TableBody,
@@ -26,18 +35,38 @@ export default async function PortfolioPage() {
   });
 
   const quarter = currentQuarter();
+  const thresholds = GOAL_LEVELS.filter((l) => l > 0); // 25, 50, 75, 100, 120
+
+  // How many projects have *reached* each threshold, per goal — levels are
+  // cumulative (reaching 50% implies the 25% items are already covered),
+  // so "reached 25%" counts every project at level >= 25.
+  const coverageByGoal = GOAL_TYPES.map((goalType) => {
+    const levels = projects.map(
+      (p) => p.goalProgress.find((g) => g.goalType === goalType)?.level ?? 0
+    );
+    return {
+      goalType,
+      counts: thresholds.map(
+        (threshold) => levels.filter((l) => l >= threshold).length
+      ),
+    };
+  });
 
   const missing = projects.flatMap((p) => {
     const issues: string[] = [];
     if (!p.quarterPresentations.some((qp) => qp.quarter === quarter)) {
       issues.push(`Missing ${quarter} planning presentation`);
     }
-    const coreMeetingTypes = ["WEEKLY", "SPRINT_REVIEW", "RETRO"];
-    const missingMeetings = coreMeetingTypes.filter(
-      (t) => !p.teamsMeetings.some((m) => m.type === t)
-    );
-    if (missingMeetings.length > 0) {
-      issues.push(`Missing meeting link(s): ${missingMeetings.join(", ")}`);
+    const meetingProblems = CORE_MEETING_TYPES.filter((t) => {
+      const meeting = p.teamsMeetings.find((m) => m.type === t) ?? null;
+      return computeMeetingStatus(meeting) !== "ACTIVE";
+    });
+    if (meetingProblems.length > 0) {
+      issues.push(
+        `Meeting map incomplete: ${meetingProblems
+          .map((t) => MEETING_TYPE_LABELS[t])
+          .join(", ")}`
+      );
     }
     if (!p.managerApprovals.every((a) => a.approved)) {
       issues.push("120% approval incomplete");
@@ -62,6 +91,10 @@ export default async function PortfolioPage() {
           <CardTitle className="text-base">
             Projects vs. Goal Coverage
           </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Each level is set directly — pick it from the dropdown under any
+            badge to update it, here or on the project&apos;s tab.
+          </p>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -74,29 +107,92 @@ export default async function PortfolioPage() {
                       {GOAL_SHORT_LABELS[g]}
                     </TableHead>
                   ))}
+                  <TableHead className="text-center whitespace-nowrap">
+                    Average
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {projects.map((project) => (
-                  <TableRow key={project.id}>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/projects/${project.code}`}
-                        className="hover:underline"
-                      >
-                        {project.name}
-                      </Link>
-                    </TableCell>
-                    {GOAL_TYPES.map((g) => {
-                      const gp = project.goalProgress.find(
-                        (x) => x.goalType === g
-                      );
-                      return (
+                {projects
+                  .map((project) => {
+                    const levels = GOAL_TYPES.map(
+                      (g) =>
+                        project.goalProgress.find((x) => x.goalType === g)
+                          ?.level ?? 0
+                    );
+                    const average = Math.round(
+                      levels.reduce((sum, l) => sum + l, 0) / levels.length
+                    );
+                    return { project, levels, average };
+                  })
+                  .sort((a, b) => a.average - b.average) // most behind first
+                  .map(({ project, levels, average }) => (
+                    <TableRow key={project.id}>
+                      <TableCell className="font-medium whitespace-nowrap">
+                        <Link
+                          href={`/projects/${project.code}`}
+                          className="hover:underline"
+                        >
+                          {project.name}
+                        </Link>
+                      </TableCell>
+                      {GOAL_TYPES.map((g, i) => (
                         <TableCell key={g} className="text-center">
-                          <GoalBadge level={gp?.level ?? 0} />
+                          <GoalLevelSelect
+                            projectId={project.id}
+                            code={project.code}
+                            goalType={g}
+                            level={levels[i]}
+                            layout="stacked"
+                          />
                         </TableCell>
-                      );
-                    })}
+                      ))}
+                      <TableCell className="text-center">
+                        <GoalBadge level={average} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Portfolio Coverage per Goal
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Projects that have reached each milestone level, out of{" "}
+            {projects.length} total (levels are cumulative — reaching 50%
+            counts toward 25% too).
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Goal</TableHead>
+                  {thresholds.map((t) => (
+                    <TableHead key={t} className="text-center">
+                      {t}%
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {coverageByGoal.map(({ goalType, counts }) => (
+                  <TableRow key={goalType}>
+                    <TableCell className="font-medium whitespace-nowrap">
+                      {GOAL_LABELS[goalType]}
+                    </TableCell>
+                    {counts.map((count, i) => (
+                      <TableCell key={thresholds[i]} className="text-center">
+                        {count}/{projects.length}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>

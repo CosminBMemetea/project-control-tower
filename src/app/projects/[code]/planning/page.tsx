@@ -5,6 +5,7 @@ import { currentQuarter } from "@/lib/period";
 import { GoalProgressForm } from "@/components/goal-progress-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ControlledInput } from "@/components/controlled-input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -82,7 +83,7 @@ export default async function PlanningPage({
             <input type="hidden" name="code" value={project.code} />
             <div className="grid gap-1.5">
               <label className="text-xs text-muted-foreground">Quarter</label>
-              <Input
+              <ControlledInput
                 name="quarter"
                 placeholder={quarter}
                 defaultValue={quarter}

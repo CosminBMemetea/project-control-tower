@@ -1,7 +1,7 @@
-import { upsertGoalProgress } from "@/lib/actions";
-import { GOAL_LEVELS, GOAL_LABELS, type GoalType } from "@/lib/constants";
-import { GoalBadge } from "@/components/goal-badge";
-import { Input } from "@/components/ui/input";
+import { setGoalEvidenceUrl } from "@/lib/actions";
+import { GOAL_LABELS, type GoalType } from "@/lib/constants";
+import { GoalLevelSelect } from "@/components/goal-level-select";
+import { ControlledInput } from "@/components/controlled-input";
 import { Button } from "@/components/ui/button";
 
 export function GoalProgressForm({
@@ -18,43 +18,35 @@ export function GoalProgressForm({
   evidenceUrl: string | null;
 }) {
   return (
-    <form
-      action={upsertGoalProgress}
-      className="flex flex-wrap items-center gap-3"
-    >
-      <input type="hidden" name="projectId" value={projectId} />
-      <input type="hidden" name="code" value={code} />
-      <input type="hidden" name="goalType" value={goalType} />
+    <div className="flex flex-wrap items-center gap-3">
+      <span className="text-sm text-muted-foreground">
+        {GOAL_LABELS[goalType]} coverage
+      </span>
 
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">
-          {GOAL_LABELS[goalType]} coverage
-        </span>
-        <GoalBadge level={level} />
-      </div>
-
-      <select
-        name="level"
-        defaultValue={level}
-        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
-      >
-        {GOAL_LEVELS.map((l) => (
-          <option key={l} value={l}>
-            {l}%
-          </option>
-        ))}
-      </select>
-
-      <Input
-        name="evidenceUrl"
-        placeholder="Evidence link (optional)"
-        defaultValue={evidenceUrl ?? ""}
-        className="flex-1 min-w-48"
+      <GoalLevelSelect
+        projectId={projectId}
+        code={code}
+        goalType={goalType}
+        level={level}
       />
 
-      <Button type="submit" size="sm" variant="outline">
-        Save
-      </Button>
-    </form>
+      <form
+        action={setGoalEvidenceUrl}
+        className="flex flex-1 min-w-64 items-center gap-2"
+      >
+        <input type="hidden" name="projectId" value={projectId} />
+        <input type="hidden" name="code" value={code} />
+        <input type="hidden" name="goalType" value={goalType} />
+        <ControlledInput
+          name="evidenceUrl"
+          placeholder="Evidence link (optional)"
+          defaultValue={evidenceUrl ?? ""}
+          className="flex-1"
+        />
+        <Button type="submit" size="sm" variant="outline">
+          Save Evidence
+        </Button>
+      </form>
+    </div>
   );
 }

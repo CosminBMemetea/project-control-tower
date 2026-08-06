@@ -38,10 +38,35 @@ export const MEETING_TYPES = [
 ] as const;
 
 export const MEETING_TYPE_LABELS: Record<(typeof MEETING_TYPES)[number], string> = {
-  WEEKLY: "Weekly Update",
+  WEEKLY: "Weekly Sync",
   SPRINT_REVIEW: "Sprint Review",
   RETRO: "Retrospective",
   OTHER: "Other",
+};
+
+// The 3 recurring meetings every project is expected to have — always
+// shown on the Meeting Map even when missing, and used to compute the
+// "missing meeting map" signal on the Portfolio Overview.
+export const CORE_MEETING_TYPES = ["WEEKLY", "SPRINT_REVIEW", "RETRO"] as const;
+
+export const WEEKDAYS = [
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+] as const;
+
+export const WEEKDAY_LABELS: Record<(typeof WEEKDAYS)[number], string> = {
+  MONDAY: "Monday",
+  TUESDAY: "Tuesday",
+  WEDNESDAY: "Wednesday",
+  THURSDAY: "Thursday",
+  FRIDAY: "Friday",
+  SATURDAY: "Saturday",
+  SUNDAY: "Sunday",
 };
 
 export const GOAL_LEVEL_COLORS: Record<number, string> = {
