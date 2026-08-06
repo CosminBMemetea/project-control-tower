@@ -40,6 +40,7 @@ model Project {
   checklistSubmissions ChecklistSubmission[]
   complianceChecks     ComplianceCheck[]
   reports              Report[]
+  monitoringResponses  MonitoringResponse[]
 }
 
 // Planning & Tracking: one row per quarter presentation link
@@ -106,7 +107,7 @@ model GoalProgress {
   @@unique([projectId, goalType])
 }
 
-// The 10 reporting-checklist questions, stored once, shared across projects
+// The 10 Reporting Checklist questions, stored once, shared across projects
 model ChecklistQuestion {
   id    String @id @default(cuid())
   order Int    @unique
@@ -115,15 +116,18 @@ model ChecklistQuestion {
   answers ChecklistAnswer[]
 }
 
-// One "Send Checklist" event for a project + period
+// One "Send Checklist" event: emailed to recipientEmail, answered via the
+// unguessable /checklist-response/[token] link (no login required — the
+// token is the credential). Verification is expected at least every 2
+// weeks; see computeChecklistStatus.
 model ChecklistSubmission {
   id String @id @default(cuid())
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  period String // e.g. "2026-Q1" or "2026-08"
-  sentTo String // SELF | TEAM
+  recipientEmail String
+  token          String @unique
 
   sentAt      DateTime  @default(now())
   submittedAt DateTime?
@@ -143,6 +147,31 @@ model ChecklistAnswer {
   answer String?
 
   @@unique([submissionId, questionId])
+}
+
+// The 10 Monitoring questions, stored once, shared across projects — simple
+// per-project checkboxes, never emailed.
+model MonitoringQuestion {
+  id    String @id @default(cuid())
+  order Int    @unique
+  text  String
+
+  responses MonitoringResponse[]
+}
+
+model MonitoringResponse {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   MonitoringQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  checked   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, questionId])
 }
 
 // The customizable report template: an ordered, editable list of sections

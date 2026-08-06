@@ -114,7 +114,27 @@ export const STRUCTURE_HIERARCHY_ITEMS = [
   },
 ] as const;
 
+// Reporting Checklist — sent by email to a person, answered via a
+// tokenized link, tracked per Project + recipient email + date.
 export const CHECKLIST_QUESTIONS = [
+  "What is delivered today / this week?",
+  "What is planned for the next sprint?",
+  "What is planned for the next milestone / gate?",
+  "When is the next release planned?",
+  "What are the top 3 risks right now?",
+  "Are we on schedule vs. the sprint plan?",
+  "Are we on schedule vs. the gate/milestone plan?",
+  "Are there blockers requiring management action?",
+  "What dependencies exist (internal/external)?",
+  "What decisions are pending and who owns them?",
+] as const;
+
+// Verification (a submitted Reporting Checklist response) is expected at
+// least this often per project.
+export const CHECKLIST_VERIFICATION_DAYS = 14;
+
+// Monitoring — simple per-project checkboxes, never emailed.
+export const MONITORING_QUESTIONS = [
   "Is the project's Git repository up to date and accessible to all team members?",
   "Is the CodeBeamer feature/project link current and reflecting the latest scope?",
   "Has the Way of Working been reviewed by the team in the last quarter?",

@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { CHECKLIST_QUESTIONS, GOAL_TYPES } from "../src/lib/constants";
+import { CHECKLIST_QUESTIONS, MONITORING_QUESTIONS, GOAL_TYPES } from "../src/lib/constants";
 import { PROJECTS } from "../config/projects";
 import { APPROVERS } from "../config/approvers";
 
@@ -26,6 +26,15 @@ async function main() {
       where: { order: i + 1 },
       update: { text: CHECKLIST_QUESTIONS[i] },
       create: { order: i + 1, text: CHECKLIST_QUESTIONS[i] },
+    });
+  }
+
+  console.log("Seeding monitoring questions...");
+  for (let i = 0; i < MONITORING_QUESTIONS.length; i++) {
+    await prisma.monitoringQuestion.upsert({
+      where: { order: i + 1 },
+      update: { text: MONITORING_QUESTIONS[i] },
+      create: { order: i + 1, text: MONITORING_QUESTIONS[i] },
     });
   }
 

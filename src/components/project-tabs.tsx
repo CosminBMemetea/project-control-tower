@@ -10,6 +10,7 @@ const TABS = [
   { slug: "meetings", label: "Meetings & Cadence" },
   { slug: "reporting", label: "Reporting" },
   { slug: "checklist", label: "Checklist" },
+  { slug: "monitoring", label: "Monitoring" },
   { slug: "compliance", label: "Execution / Compliance" },
 ];
 

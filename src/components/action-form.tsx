@@ -5,8 +5,9 @@ import { toast } from "sonner";
 import type { ActionResult } from "@/lib/actions";
 
 // Drop-in replacement for <form action={fn}> when fn can return
-// { error: string } — surfaces it as a toast instead of the submit
-// silently doing nothing when a required field was left empty.
+// { error: string } or { info: string } — surfaces either as a toast
+// instead of the submit silently doing nothing or leaving the user
+// unsure whether something like an email actually went out.
 export function ActionForm({
   action,
   children,
@@ -22,9 +23,9 @@ export function ActionForm({
   );
 
   useEffect(() => {
-    if (state && "error" in state) {
-      toast.error(state.error);
-    }
+    if (!state) return;
+    if ("error" in state) toast.error(state.error);
+    else if ("info" in state) toast.info(state.info);
   }, [state]);
 
   return (

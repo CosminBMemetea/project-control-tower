@@ -1,10 +1,11 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { currentReportingPeriod } from "@/lib/period";
-import { STRUCTURE_HIERARCHY_ITEMS, type GoalType } from "@/lib/constants";
+import { sendEmail, getAppBaseUrl } from "@/lib/email";
+import { CHECKLIST_QUESTIONS, STRUCTURE_HIERARCHY_ITEMS, type GoalType } from "@/lib/constants";
 
 function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -12,8 +13,12 @@ function str(formData: FormData, key: string): string {
 
 // Returned by actions whose only real failure mode is "a required field
 // was left empty" — ActionForm surfaces this.error as a toast instead of
-// the submit silently doing nothing.
-export type ActionResult = { error: string } | void;
+// the submit silently doing nothing. `info` is for a non-error outcome
+// still worth telling the user about (e.g. "email wasn't actually sent,
+// no SMTP configured — here's the link instead").
+export type ActionResult = { error: string } | { info: string } | void;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function revalidateGlobal() {
   revalidatePath("/portfolio");
@@ -288,30 +293,70 @@ export async function deleteTeamsMeeting(formData: FormData) {
   revalidateProject(code);
 }
 
-export async function sendChecklist(formData: FormData) {
+// Creates the submission, emails the recipient a link to
+// /checklist-response/[token] (no login needed — the token is the
+// credential), and reports back whether the email actually went out.
+export async function sendChecklist(formData: FormData): Promise<ActionResult> {
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
-  const sentTo = str(formData, "sentTo") || "SELF";
-  const period = currentReportingPeriod();
+  const recipientEmail = str(formData, "recipientEmail");
+  if (!recipientEmail) return { error: "An email address is required." };
+  if (!EMAIL_RE.test(recipientEmail)) {
+    return { error: "That doesn't look like a valid email address." };
+  }
+
+  const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+  const token = randomBytes(24).toString("hex");
 
   await prisma.checklistSubmission.create({
-    data: { projectId, period, sentTo },
+    data: { projectId, recipientEmail, token },
   });
+
+  const link = `${getAppBaseUrl()}/checklist-response/${token}`;
+  const result = await sendEmail({
+    to: recipientEmail,
+    subject: `Reporting Checklist — ${project.name}`,
+    html: `
+      <p>You've been asked to complete the Reporting Checklist for <strong>${project.name}</strong>.</p>
+      <p><a href="${link}">${link}</a></p>
+      <p>It covers ${CHECKLIST_QUESTIONS.length} short questions on status, risks, and dependencies — should take a few minutes.</p>
+    `,
+  });
+
   revalidateProject(code);
+
+  if (result.sent) {
+    return { info: `Sent to ${recipientEmail}.` };
+  }
+  return {
+    info: `Checklist created, but the email wasn't sent (${result.reason}). Copy the link from Submission History below and share it manually.`,
+  };
 }
 
-export async function submitChecklistAnswers(formData: FormData) {
-  const submissionId = str(formData, "submissionId");
-  const code = str(formData, "code");
+// Public: answered via the tokenized link, no project/session context
+// available, so the submission's own project relation is used for
+// revalidation.
+export async function submitChecklistResponse(
+  formData: FormData
+): Promise<ActionResult> {
+  const token = str(formData, "token");
   const questionIds = formData.getAll("questionId").map(String);
+
+  const submission = await prisma.checklistSubmission.findUnique({
+    where: { token },
+    include: { project: true },
+  });
+  if (!submission) return { error: "This checklist link is no longer valid." };
 
   await Promise.all(
     questionIds.map((questionId) =>
       prisma.checklistAnswer.upsert({
-        where: { submissionId_questionId: { submissionId, questionId } },
+        where: {
+          submissionId_questionId: { submissionId: submission.id, questionId },
+        },
         update: { answer: str(formData, `answer_${questionId}`) || null },
         create: {
-          submissionId,
+          submissionId: submission.id,
           questionId,
           answer: str(formData, `answer_${questionId}`) || null,
         },
@@ -320,10 +365,28 @@ export async function submitChecklistAnswers(formData: FormData) {
   );
 
   await prisma.checklistSubmission.update({
-    where: { id: submissionId },
+    where: { id: submission.id },
     data: { submittedAt: new Date() },
   });
 
+  revalidateProject(submission.project.code);
+  revalidatePath(`/checklist-response/${token}`);
+  return { info: "Response recorded — thank you." };
+}
+
+// Auto-saved from a single Monitoring checkbox — same independent-field
+// reasoning as setStructureHierarchyField.
+export async function setMonitoringCheck(
+  projectId: string,
+  code: string,
+  questionId: string,
+  checked: boolean
+) {
+  await prisma.monitoringResponse.upsert({
+    where: { projectId_questionId: { projectId, questionId } },
+    update: { checked },
+    create: { projectId, questionId, checked },
+  });
   revalidateProject(code);
 }
 

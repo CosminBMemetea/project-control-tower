@@ -222,8 +222,7 @@ export default async function ReportingPage({
             {latestSubmission ? (
               <div className="text-muted-foreground space-y-1">
                 <p>
-                  {latestSubmission.period} · sent to{" "}
-                  {latestSubmission.sentTo === "SELF" ? "me" : "project team"} ·{" "}
+                  Sent to {latestSubmission.recipientEmail} ·{" "}
                   {latestSubmission.submittedAt ? "submitted" : "awaiting answers"}
                 </p>
                 <ul className="list-disc list-inside">
