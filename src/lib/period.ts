@@ -15,7 +15,8 @@ export function currentReportingPeriod(date: Date = new Date()): string {
   return `${currentMonth(date)}-${isFirstHalfOfMonth(date) ? "mid" : "end"}`;
 }
 
-// Status reports are collected every Monday (1) and Thursday (4).
+// Weekly status reports are expected every Monday (1) and Thursday (4) —
+// used to flag a "Weekly Status" report dated for some other weekday.
 export function isMondayOrThursday(date: Date): boolean {
   const day = date.getUTCDay();
   return day === 1 || day === 4;
@@ -23,17 +24,5 @@ export function isMondayOrThursday(date: Date): boolean {
 
 export function toDateInputValue(date: Date): string {
   return date.toISOString().slice(0, 10);
-}
-
-// Most recent Monday or Thursday on/before `date`, used as the default
-// value for the "add status report" form.
-export function mostRecentReportingDate(date: Date = new Date()): Date {
-  const d = new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-  );
-  while (!isMondayOrThursday(d)) {
-    d.setUTCDate(d.getUTCDate() - 1);
-  }
-  return d;
 }
 

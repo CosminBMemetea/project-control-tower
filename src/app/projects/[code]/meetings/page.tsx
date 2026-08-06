@@ -11,6 +11,7 @@ import { computeMeetingStatus, type MeetingStatus } from "@/lib/meeting-status";
 import { GoalProgressForm } from "@/components/goal-progress-form";
 import { MeetingCard, RecurrenceFields } from "@/components/meeting-card";
 import { MeetingStatusBadge } from "@/components/meeting-status-badge";
+import { ActionForm } from "@/components/action-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -112,7 +113,7 @@ export default async function MeetingsPage({
           </p>
         </CardHeader>
         <CardContent>
-          <form
+          <ActionForm
             action={addTeamsMeeting}
             className="flex flex-wrap items-end gap-3"
           >
@@ -157,7 +158,7 @@ export default async function MeetingsPage({
             <Button type="submit" size="sm">
               Add
             </Button>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
 

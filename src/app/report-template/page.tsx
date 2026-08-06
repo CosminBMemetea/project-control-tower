@@ -8,6 +8,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ControlledInput } from "@/components/controlled-input";
 import { ControlledCheckbox } from "@/components/controlled-checkbox";
+import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 
 export default async function ReportTemplatePage() {
@@ -71,7 +72,7 @@ export default async function ReportTemplatePage() {
                 </form>
               </div>
 
-              <form
+              <ActionForm
                 action={updateTemplateSection}
                 className="flex flex-1 flex-wrap items-center gap-3"
               >
@@ -88,7 +89,7 @@ export default async function ReportTemplatePage() {
                 <Button type="submit" size="sm" variant="outline">
                   Save
                 </Button>
-              </form>
+              </ActionForm>
 
               <form action={deleteTemplateSection}>
                 <input type="hidden" name="id" value={section.id} />
@@ -99,7 +100,7 @@ export default async function ReportTemplatePage() {
             </div>
           ))}
 
-          <form
+          <ActionForm
             action={addTemplateSection}
             className="flex flex-wrap items-center gap-3 pt-2 border-t"
           >
@@ -116,7 +117,7 @@ export default async function ReportTemplatePage() {
             <Button type="submit" size="sm">
               Add Section
             </Button>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
     </div>

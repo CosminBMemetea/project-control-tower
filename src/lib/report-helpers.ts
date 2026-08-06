@@ -1,4 +1,5 @@
 import { REPORT_TYPE_LABELS, type ReportType } from "@/lib/constants";
+import { isMondayOrThursday } from "@/lib/period";
 
 const MONTH_YEAR = (d: Date) =>
   d.toLocaleDateString(undefined, {
@@ -34,4 +35,11 @@ export function reportLabel(
     default:
       return `${REPORT_TYPE_LABELS[type as ReportType] ?? type} — ${WEEKDAY_MONTH_DAY(reportDate)}`;
   }
+}
+
+// A "Weekly Status" report is expected on a Monday or Thursday — flags
+// it when it isn't, same soft-validation nicety the old status-report
+// flow had.
+export function isOffCadenceWeekly(type: string, reportDate: Date): boolean {
+  return type === "WEEKLY" && !isMondayOrThursday(reportDate);
 }

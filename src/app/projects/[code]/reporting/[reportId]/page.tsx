@@ -3,22 +3,24 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { toDateInputValue } from "@/lib/period";
 import { REPORT_TYPES, REPORT_TYPE_LABELS } from "@/lib/constants";
-import { reportLabel } from "@/lib/report-helpers";
+import { reportLabel, isOffCadenceWeekly } from "@/lib/report-helpers";
 import { updateReportMeta, saveReportSections, deleteReport } from "@/lib/actions";
 import { ReportTypeBadge } from "@/components/report-type-badge";
+import { SafeLink } from "@/components/safe-link";
+import { ActionForm } from "@/components/action-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ControlledInput } from "@/components/controlled-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
-function parseLinks(raw: string | null): { url: string; isLink: boolean }[] {
+function parseLinks(raw: string | null): string[] {
   if (!raw) return [];
   return raw
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => ({ url: line, isLink: /^https?:\/\//i.test(line) }));
+    .filter(Boolean);
 }
 
 export default async function ReportEditPage({
@@ -58,10 +60,15 @@ export default async function ReportEditPage({
           <CardTitle className="text-base">
             {reportLabel(report.type, new Date(report.reportDate), report.title)}
           </CardTitle>
-          <ReportTypeBadge type={report.type} />
+          <div className="flex items-center gap-1.5">
+            {isOffCadenceWeekly(report.type, new Date(report.reportDate)) && (
+              <Badge variant="outline">off-cadence</Badge>
+            )}
+            <ReportTypeBadge type={report.type} />
+          </div>
         </CardHeader>
         <CardContent>
-          <form action={updateReportMeta} className="flex flex-wrap items-end gap-3">
+          <ActionForm action={updateReportMeta} className="flex flex-wrap items-end gap-3">
             <input type="hidden" name="id" value={report.id} />
             <input type="hidden" name="code" value={project.code} />
             <div className="grid gap-1.5">
@@ -96,7 +103,7 @@ export default async function ReportEditPage({
             <Button type="submit" size="sm" variant="outline">
               Save Details
             </Button>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
 
@@ -135,24 +142,13 @@ export default async function ReportEditPage({
                     <div className="space-y-2">
                       {existingLinks.length > 0 && (
                         <ul className="space-y-1">
-                          {existingLinks.map((l, i) =>
-                            l.isLink ? (
-                              <li key={i}>
-                                <a
-                                  href={l.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-xs text-primary underline"
-                                >
-                                  {l.url}
-                                </a>
-                              </li>
-                            ) : (
-                              <li key={i} className="text-xs text-muted-foreground">
-                                {l.url}
-                              </li>
-                            )
-                          )}
+                          {existingLinks.map((url, i) => (
+                            <li key={i}>
+                              <SafeLink href={url} className="text-xs text-primary underline">
+                                {url}
+                              </SafeLink>
+                            </li>
+                          ))}
                         </ul>
                       )}
                       <Textarea

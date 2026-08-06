@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Check } from "lucide-react";
 import { RECURRENCE_TYPES, RECURRENCE_LABELS } from "@/lib/constants";
 import { setMeetingRecurrence } from "@/lib/actions";
+import { Button } from "@/components/ui/button";
 
 // Quick, always-visible recurrence editor for an existing meeting —
 // auto-saves on change so recurrence can be set (or corrected)
@@ -60,15 +62,37 @@ export function MeetingRecurrenceControl({
         ))}
       </select>
       {type === "CUSTOM" && (
-        <input
-          aria-label="Custom recurrence"
-          value={label}
-          disabled={isPending}
-          onChange={(e) => setLabel(e.target.value)}
-          onBlur={() => save(type, label)}
-          placeholder="e.g. every 3 weeks on Thu"
-          className="h-7 flex-1 min-w-0 rounded-md border border-input bg-transparent px-1.5 text-xs shadow-xs disabled:opacity-50"
-        />
+        <>
+          <input
+            aria-label="Custom recurrence"
+            value={label}
+            disabled={isPending}
+            onChange={(e) => setLabel(e.target.value)}
+            onBlur={() => save(type, label)}
+            onKeyDown={(e) => {
+              // Blur alone loses whatever's typed if the user navigates
+              // away without clicking off the field first (e.g. a link
+              // click steals focus without firing blur first in some
+              // browsers) — Enter is an explicit, unambiguous save.
+              if (e.key === "Enter") {
+                e.preventDefault();
+                save(type, label);
+              }
+            }}
+            placeholder="e.g. every 3 weeks on Thu"
+            className="h-7 flex-1 min-w-0 rounded-md border border-input bg-transparent px-1.5 text-xs shadow-xs disabled:opacity-50"
+          />
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="outline"
+            disabled={isPending}
+            aria-label="Save custom recurrence"
+            onClick={() => save(type, label)}
+          >
+            <Check />
+          </Button>
+        </>
       )}
     </div>
   );

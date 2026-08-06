@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { addQuarterPresentation, deleteQuarterPresentation } from "@/lib/actions";
 import { currentQuarter } from "@/lib/period";
 import { GoalProgressForm } from "@/components/goal-progress-form";
+import { SafeLink } from "@/components/safe-link";
+import { ActionForm } from "@/components/action-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ControlledInput } from "@/components/controlled-input";
@@ -55,14 +57,12 @@ export default async function PlanningPage({
               >
                 <div className="text-sm">
                   <span className="font-medium">{qp.quarter}</span>{" "}
-                  <a
+                  <SafeLink
                     href={qp.url}
-                    target="_blank"
-                    rel="noreferrer"
                     className="text-muted-foreground hover:text-foreground hover:underline"
                   >
                     {qp.url}
-                  </a>
+                  </SafeLink>
                 </div>
                 <form action={deleteQuarterPresentation}>
                   <input type="hidden" name="id" value={qp.id} />
@@ -75,7 +75,7 @@ export default async function PlanningPage({
             ))}
           </div>
 
-          <form
+          <ActionForm
             action={addQuarterPresentation}
             className="flex flex-wrap items-end gap-3 pt-2 border-t"
           >
@@ -99,7 +99,7 @@ export default async function PlanningPage({
             <Button type="submit" size="sm">
               Add
             </Button>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
 

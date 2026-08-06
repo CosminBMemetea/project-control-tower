@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ControlledCheckbox } from "@/components/controlled-checkbox";
+import { ActionForm } from "@/components/action-form";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -74,7 +75,7 @@ export default async function CompliancePage({
             ))}
           </div>
 
-          <form
+          <ActionForm
             action={addComplianceCheck}
             className="space-y-3 pt-2 border-t"
           >
@@ -89,7 +90,7 @@ export default async function CompliancePage({
             <Button type="submit" size="sm">
               Log Check
             </Button>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
 

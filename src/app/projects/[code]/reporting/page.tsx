@@ -3,15 +3,17 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { currentReportingPeriod, toDateInputValue } from "@/lib/period";
 import { GOAL_TYPES, GOAL_LABELS, REPORT_TYPES, REPORT_TYPE_LABELS } from "@/lib/constants";
-import { reportLabel } from "@/lib/report-helpers";
+import { reportLabel, isOffCadenceWeekly } from "@/lib/report-helpers";
 import { createReport, deleteReport } from "@/lib/actions";
 import { GoalProgressForm } from "@/components/goal-progress-form";
 import { ReportTypeBadge } from "@/components/report-type-badge";
+import { ActionForm } from "@/components/action-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalBadge } from "@/components/goal-badge";
 import { Input } from "@/components/ui/input";
 import { ControlledInput } from "@/components/controlled-input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Table,
@@ -65,7 +67,7 @@ export default async function ReportingPage({
           </p>
         </CardHeader>
         <CardContent>
-          <form
+          <ActionForm
             action={createReport}
             className="flex flex-wrap items-end gap-3"
           >
@@ -97,7 +99,7 @@ export default async function ReportingPage({
             <Button type="submit" size="sm">
               Create &amp; Edit
             </Button>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
 
@@ -127,7 +129,12 @@ export default async function ReportingPage({
                       {toDateInputValue(new Date(r.reportDate))}
                     </TableCell>
                     <TableCell>
-                      <ReportTypeBadge type={r.type} />
+                      <div className="flex items-center gap-1.5">
+                        <ReportTypeBadge type={r.type} />
+                        {isOffCadenceWeekly(r.type, new Date(r.reportDate)) && (
+                          <Badge variant="outline">off-cadence</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Link

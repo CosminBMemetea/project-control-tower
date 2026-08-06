@@ -10,6 +10,11 @@ function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
+// Returned by actions whose only real failure mode is "a required field
+// was left empty" — ActionForm surfaces this.error as a toast instead of
+// the submit silently doing nothing.
+export type ActionResult = { error: string } | void;
+
 function revalidateGlobal() {
   revalidatePath("/portfolio");
   revalidatePath("/portfolio/monthly-summary");
@@ -140,12 +145,14 @@ export async function setGoalEvidenceUrl(formData: FormData) {
   revalidateProject(code);
 }
 
-export async function addQuarterPresentation(formData: FormData) {
+export async function addQuarterPresentation(
+  formData: FormData
+): Promise<ActionResult> {
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const quarter = str(formData, "quarter");
   const url = str(formData, "url");
-  if (!quarter || !url) return;
+  if (!quarter || !url) return { error: "Quarter and URL are both required." };
 
   await prisma.quarterPresentation.upsert({
     where: { projectId_quarter: { projectId, quarter } },
@@ -162,7 +169,9 @@ export async function deleteQuarterPresentation(formData: FormData) {
   revalidateProject(code);
 }
 
-export async function addTeamsMeeting(formData: FormData) {
+export async function addTeamsMeeting(
+  formData: FormData
+): Promise<ActionResult> {
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const type = str(formData, "type");
@@ -170,7 +179,7 @@ export async function addTeamsMeeting(formData: FormData) {
   const url = str(formData, "url");
   const dayOfWeek = str(formData, "dayOfWeek");
   const time = str(formData, "time");
-  if (!type || !url) return;
+  if (!type || !url) return { error: "A Teams link is required." };
 
   await prisma.teamsMeeting.create({
     data: {
@@ -190,14 +199,16 @@ export async function addTeamsMeeting(formData: FormData) {
 // Review/Retro) for a project — at most one row per (project, type), so
 // this finds the existing row and updates it, or creates it if the slot
 // is currently "Missing".
-export async function upsertCoreMeeting(formData: FormData) {
+export async function upsertCoreMeeting(
+  formData: FormData
+): Promise<ActionResult> {
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const type = str(formData, "type");
   const url = str(formData, "url");
   const dayOfWeek = str(formData, "dayOfWeek");
   const time = str(formData, "time");
-  if (!type || !url) return;
+  if (!type || !url) return { error: "A Teams link is required." };
 
   const existing = await prisma.teamsMeeting.findFirst({
     where: { projectId, type },
@@ -223,13 +234,15 @@ export async function upsertCoreMeeting(formData: FormData) {
 // Deliberately doesn't touch recurrence: that's owned solely by
 // setMeetingRecurrence's quick control, so saving url/day/time here can
 // never silently wipe a recurrence someone just set.
-export async function updateTeamsMeeting(formData: FormData) {
+export async function updateTeamsMeeting(
+  formData: FormData
+): Promise<ActionResult> {
   const id = str(formData, "id");
   const code = str(formData, "code");
   const url = str(formData, "url");
   const dayOfWeek = str(formData, "dayOfWeek");
   const time = str(formData, "time");
-  if (!url) return;
+  if (!url) return { error: "A Teams link is required." };
 
   await prisma.teamsMeeting.update({
     where: { id },
@@ -318,13 +331,16 @@ export async function submitChecklistAnswers(formData: FormData) {
 // the sections can be filled in. Doesn't pre-create ReportSectionEntry
 // rows — the edit page renders one field per *current* template section
 // regardless, and saveReportSections upserts on save.
-export async function createReport(formData: FormData) {
+export async function createReport(
+  formData: FormData
+): Promise<ActionResult> {
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const type = str(formData, "type");
   const reportDateStr = str(formData, "reportDate");
   const title = str(formData, "title");
-  if (!type || !reportDateStr) return;
+  if (!type || !reportDateStr)
+    return { error: "Type and date are both required." };
 
   const report = await prisma.report.create({
     data: {
@@ -338,13 +354,16 @@ export async function createReport(formData: FormData) {
   redirect(`/projects/${code}/reporting/${report.id}`);
 }
 
-export async function updateReportMeta(formData: FormData) {
+export async function updateReportMeta(
+  formData: FormData
+): Promise<ActionResult> {
   const id = str(formData, "id");
   const code = str(formData, "code");
   const type = str(formData, "type");
   const reportDateStr = str(formData, "reportDate");
   const title = str(formData, "title");
-  if (!type || !reportDateStr) return;
+  if (!type || !reportDateStr)
+    return { error: "Type and date are both required." };
 
   await prisma.report.update({
     where: { id },
@@ -395,10 +414,12 @@ export async function deleteReport(formData: FormData) {
 
 // --- Report template management (Report Template settings page) ---
 
-export async function addTemplateSection(formData: FormData) {
+export async function addTemplateSection(
+  formData: FormData
+): Promise<ActionResult> {
   const label = str(formData, "label");
   const hasLinks = formData.get("hasLinks") === "on";
-  if (!label) return;
+  if (!label) return { error: "Section name is required." };
 
   const last = await prisma.reportTemplateSection.findFirst({
     orderBy: { order: "desc" },
@@ -410,11 +431,13 @@ export async function addTemplateSection(formData: FormData) {
   revalidateAllProjectReportingTabs();
 }
 
-export async function updateTemplateSection(formData: FormData) {
+export async function updateTemplateSection(
+  formData: FormData
+): Promise<ActionResult> {
   const id = str(formData, "id");
   const label = str(formData, "label");
   const hasLinks = formData.get("hasLinks") === "on";
-  if (!label) return;
+  if (!label) return { error: "Section name is required." };
 
   await prisma.reportTemplateSection.update({
     where: { id },
@@ -465,13 +488,15 @@ export async function moveTemplateSection(formData: FormData) {
   revalidateAllProjectReportingTabs();
 }
 
-export async function addComplianceCheck(formData: FormData) {
+export async function addComplianceCheck(
+  formData: FormData
+): Promise<ActionResult> {
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const description = str(formData, "description");
   const compliant = formData.get("compliant") === "on";
   const deviationNote = str(formData, "deviationNote");
-  if (!description) return;
+  if (!description) return { error: "Description is required." };
 
   await prisma.complianceCheck.create({
     data: {

@@ -17,6 +17,8 @@ import {
 } from "@/lib/meeting-status";
 import { MeetingStatusBadge } from "@/components/meeting-status-badge";
 import { MeetingRecurrenceControl } from "@/components/meeting-recurrence-control";
+import { SafeLink } from "@/components/safe-link";
+import { ActionForm } from "@/components/action-form";
 import { ControlledInput } from "@/components/controlled-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -96,7 +98,7 @@ export function MeetingCard({
           <MeetingStatusBadge status="MISSING" />
         </CardHeader>
         <CardContent>
-          <form action={upsertCoreMeeting} className="space-y-2">
+          <ActionForm action={upsertCoreMeeting} className="space-y-2">
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="code" value={code} />
             <input type="hidden" name="type" value={type} />
@@ -118,7 +120,7 @@ export function MeetingCard({
             <Button type="submit" size="sm" className="w-full">
               Add meeting
             </Button>
-          </form>
+          </ActionForm>
         </CardContent>
       </Card>
     );
@@ -164,14 +166,12 @@ export function MeetingCard({
           </p>
         </div>
 
-        <a
+        <SafeLink
           href={meeting.url}
-          target="_blank"
-          rel="noreferrer"
           className="inline-flex w-full items-center justify-center rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent"
         >
           Join in Teams
-        </a>
+        </SafeLink>
 
         <div>
           <label className="text-[0.65rem] uppercase tracking-wide text-muted-foreground">
@@ -206,7 +206,7 @@ export function MeetingCard({
           <summary className="cursor-pointer text-muted-foreground">
             Edit schedule / link
           </summary>
-          <form action={updateTeamsMeeting} className="space-y-2 pt-2">
+          <ActionForm action={updateTeamsMeeting} className="space-y-2 pt-2">
             <input type="hidden" name="id" value={meeting.id} />
             <input type="hidden" name="code" value={code} />
             <ControlledInput
@@ -226,7 +226,7 @@ export function MeetingCard({
             <Button type="submit" size="sm" variant="outline" className="w-full">
               Save
             </Button>
-          </form>
+          </ActionForm>
         </details>
       </CardContent>
     </Card>
