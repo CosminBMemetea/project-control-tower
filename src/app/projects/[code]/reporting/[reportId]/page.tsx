@@ -7,7 +7,7 @@ import { reportLabel } from "@/lib/report-helpers";
 import { updateReportMeta, saveReportSections, deleteReport } from "@/lib/actions";
 import { ReportTypeBadge } from "@/components/report-type-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { ControlledInput } from "@/components/controlled-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -80,7 +80,7 @@ export default async function ReportEditPage({
             </div>
             <div className="grid gap-1.5">
               <label className="text-xs text-muted-foreground">Date</label>
-              <Input
+              <ControlledInput
                 type="date"
                 name="reportDate"
                 defaultValue={toDateInputValue(new Date(report.reportDate))}
@@ -91,7 +91,7 @@ export default async function ReportEditPage({
               <label className="text-xs text-muted-foreground">
                 Title (optional)
               </label>
-              <Input name="title" defaultValue={report.title ?? ""} />
+              <ControlledInput name="title" defaultValue={report.title ?? ""} />
             </div>
             <Button type="submit" size="sm" variant="outline">
               Save Details

@@ -10,6 +10,7 @@ import { ReportTypeBadge } from "@/components/report-type-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalBadge } from "@/components/goal-badge";
 import { Input } from "@/components/ui/input";
+import { ControlledInput } from "@/components/controlled-input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -85,7 +86,7 @@ export default async function ReportingPage({
             </div>
             <div className="grid gap-1.5">
               <label className="text-xs text-muted-foreground">Date</label>
-              <Input type="date" name="reportDate" defaultValue={today} className="w-40" />
+              <ControlledInput type="date" name="reportDate" defaultValue={today} className="w-40" />
             </div>
             <div className="grid gap-1.5 flex-1 min-w-48">
               <label className="text-xs text-muted-foreground">
