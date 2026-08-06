@@ -444,14 +444,21 @@ export async function moveTemplateSection(formData: FormData) {
 
   const a = sections[index];
   const b = sections[swapWith];
+  // `order` is unique, so swapping directly (a -> b.order while b still
+  // holds b.order) collides mid-transaction. Bounce through a value
+  // outside the valid range first.
   await prisma.$transaction([
     prisma.reportTemplateSection.update({
       where: { id: a.id },
-      data: { order: b.order },
+      data: { order: -1 },
     }),
     prisma.reportTemplateSection.update({
       where: { id: b.id },
       data: { order: a.order },
+    }),
+    prisma.reportTemplateSection.update({
+      where: { id: a.id },
+      data: { order: b.order },
     }),
   ]);
   revalidatePath("/report-template");
