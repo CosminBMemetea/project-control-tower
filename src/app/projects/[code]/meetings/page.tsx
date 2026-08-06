@@ -9,7 +9,7 @@ import {
 } from "@/lib/constants";
 import { computeMeetingStatus, type MeetingStatus } from "@/lib/meeting-status";
 import { GoalProgressForm } from "@/components/goal-progress-form";
-import { MeetingCard } from "@/components/meeting-card";
+import { MeetingCard, RecurrenceFields } from "@/components/meeting-card";
 import { MeetingStatusBadge } from "@/components/meeting-status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -147,6 +147,12 @@ export default async function MeetingsPage({
             <div className="grid gap-1.5">
               <label className="text-xs text-muted-foreground">Time</label>
               <Input name="time" placeholder="10:00" className="w-24" />
+            </div>
+            <div className="grid gap-1.5 basis-full sm:basis-auto sm:w-64">
+              <label className="text-xs text-muted-foreground">
+                Recurrence
+              </label>
+              <RecurrenceFields />
             </div>
             <Button type="submit" size="sm">
               Add

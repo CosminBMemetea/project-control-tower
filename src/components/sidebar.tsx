@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, FolderKanban, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, FolderKanban, ShieldCheck, FileText } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/portfolio", label: "Portfolio Overview", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/approvals", label: "Approvals", icon: ShieldCheck },
+  { href: "/report-template", label: "Report Template", icon: FileText },
 ];
 
 export function Sidebar() {

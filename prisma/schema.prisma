@@ -39,7 +39,7 @@ model Project {
   goalProgress         GoalProgress[]
   checklistSubmissions ChecklistSubmission[]
   complianceChecks     ComplianceCheck[]
-  statusReports        StatusReport[]
+  reports              Report[]
 }
 
 // Planning & Tracking: one row per quarter presentation link
@@ -70,6 +70,9 @@ model TeamsMeeting {
 
   dayOfWeek String? // MONDAY..SUNDAY, for computing the next occurrence
   time      String? // free-text display value, e.g. "10:00"
+
+  recurrenceType  String? // WEEKLY | BIWEEKLY | EVERY_3_WEEKS | MONTHLY | CUSTOM
+  recurrenceLabel String? // free text, only used when recurrenceType = CUSTOM
 
   lastOccurredAt DateTime?
 }
@@ -142,21 +145,57 @@ model ChecklistAnswer {
   @@unique([submissionId, questionId])
 }
 
-// Periodic status report, collected every Monday and Thursday. Entries
-// can be created/edited retroactively for any past reporting date.
-model StatusReport {
+// The customizable report template: an ordered, editable list of sections
+// every report is built from (Highlights, Lowlights, ...). Edit this list
+// via the Report Template page — no code changes needed to add, rename,
+// reorder, or remove a section.
+model ReportTemplateSection {
+  id String @id @default(cuid())
+
+  order    Int     @unique
+  label    String
+  hasLinks Boolean @default(false) // shows a "links" field too (e.g. Done This Sprint)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries ReportSectionEntry[]
+}
+
+// One report for one project, covering a specific date. Reports can be
+// created retroactively for any past date — there's no "current period"
+// restriction.
+model Report {
   id String @id @default(cuid())
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  reportDate DateTime // the Monday/Thursday this report covers
-  notes      String?
+  type       String // MID_MONTH | END_MONTH | WEEKLY | CUSTOM
+  reportDate DateTime
+  title      String? // optional label, mainly useful for CUSTOM reports
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([projectId, reportDate])
+  sections ReportSectionEntry[]
+}
+
+// The content of one template section within one report. Rows are
+// created on demand as sections are filled in / as the template grows.
+model ReportSectionEntry {
+  id String @id @default(cuid())
+
+  reportId String
+  report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  sectionId String
+  section   ReportTemplateSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  content String? // free text
+  links   String? // one link per line, only shown when section.hasLinks
+
+  @@unique([reportId, sectionId])
 }
 
 // Execution Assurance (RUN): compliance checks + deviations

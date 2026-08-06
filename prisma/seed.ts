@@ -10,6 +10,15 @@ const adapter = new PrismaBetterSqlite3({
 });
 const prisma = new PrismaClient({ adapter });
 
+const DEFAULT_REPORT_TEMPLATE = [
+  { label: "Highlights", hasLinks: false },
+  { label: "Lowlights", hasLinks: false },
+  { label: "Lessons Learned", hasLinks: false },
+  { label: "Requests from the Team", hasLinks: false },
+  { label: "Done This Sprint", hasLinks: true },
+  { label: "Up Next Sprint", hasLinks: false },
+];
+
 async function main() {
   console.log("Seeding checklist questions...");
   for (let i = 0; i < CHECKLIST_QUESTIONS.length; i++) {
@@ -18,6 +27,16 @@ async function main() {
       update: { text: CHECKLIST_QUESTIONS[i] },
       create: { order: i + 1, text: CHECKLIST_QUESTIONS[i] },
     });
+  }
+
+  console.log("Seeding report template...");
+  const existingSectionCount = await prisma.reportTemplateSection.count();
+  if (existingSectionCount === 0) {
+    for (let i = 0; i < DEFAULT_REPORT_TEMPLATE.length; i++) {
+      await prisma.reportTemplateSection.create({
+        data: { ...DEFAULT_REPORT_TEMPLATE[i], order: i + 1 },
+      });
+    }
   }
 
   console.log("Seeding projects...");

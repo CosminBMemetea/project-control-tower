@@ -76,14 +76,24 @@ export default async function PortfolioPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Portfolio Overview
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Coverage across the 6 goal tracks for every R&I project · current
-          period {quarter}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Portfolio Overview
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Coverage across the 6 goal tracks for every R&I project · current
+            period {quarter}
+          </p>
+        </div>
+        <Link href="/portfolio/monthly-summary">
+          <Badge
+            variant="outline"
+            className="cursor-pointer hover:bg-muted px-3 py-1.5"
+          >
+            Monthly Consolidated Summary →
+          </Badge>
+        </Link>
       </div>
 
       <Card>

@@ -4,9 +4,19 @@ import {
   markMeetingOccurred,
   deleteTeamsMeeting,
 } from "@/lib/actions";
-import { WEEKDAYS, WEEKDAY_LABELS } from "@/lib/constants";
-import { computeMeetingStatus, nextOccurrence } from "@/lib/meeting-status";
+import {
+  WEEKDAYS,
+  WEEKDAY_LABELS,
+  RECURRENCE_TYPES,
+  RECURRENCE_LABELS,
+} from "@/lib/constants";
+import {
+  computeMeetingStatus,
+  nextOccurrence,
+  recurrenceDisplay,
+} from "@/lib/meeting-status";
 import { MeetingStatusBadge } from "@/components/meeting-status-badge";
+import { MeetingRecurrenceControl } from "@/components/meeting-recurrence-control";
 import { ControlledInput } from "@/components/controlled-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -16,6 +26,8 @@ type MeetingRecord = {
   url: string;
   dayOfWeek: string | null;
   time: string | null;
+  recurrenceType: string | null;
+  recurrenceLabel: string | null;
   lastOccurredAt: Date | null;
 };
 
@@ -33,6 +45,30 @@ function DaySelect({ defaultValue }: { defaultValue: string }) {
         </option>
       ))}
     </select>
+  );
+}
+
+export function RecurrenceFields() {
+  return (
+    <div className="flex gap-2">
+      <select
+        name="recurrenceType"
+        defaultValue=""
+        className="h-8 flex-1 rounded-md border border-input bg-transparent px-2 text-xs shadow-xs"
+      >
+        <option value="">Recurrence…</option>
+        {RECURRENCE_TYPES.map((r) => (
+          <option key={r} value={r}>
+            {RECURRENCE_LABELS[r]}
+          </option>
+        ))}
+      </select>
+      <input
+        name="recurrenceLabel"
+        placeholder="Custom text (if Custom)"
+        className="h-8 flex-1 rounded-md border border-input bg-transparent px-2 text-xs shadow-xs"
+      />
+    </div>
   );
 }
 
@@ -78,6 +114,7 @@ export function MeetingCard({
                 className="h-8 w-20 rounded-md border border-input bg-transparent px-2 text-xs shadow-xs"
               />
             </div>
+            <RecurrenceFields />
             <Button type="submit" size="sm" className="w-full">
               Add meeting
             </Button>
@@ -91,6 +128,10 @@ export function MeetingCard({
   const dayLabel = meeting.dayOfWeek
     ? WEEKDAY_LABELS[meeting.dayOfWeek as keyof typeof WEEKDAY_LABELS]
     : "Day not set";
+  const recurrence = recurrenceDisplay(
+    meeting.recurrenceType,
+    meeting.recurrenceLabel
+  );
 
   return (
     <Card>
@@ -103,6 +144,7 @@ export function MeetingCard({
           <p>
             {dayLabel}
             {meeting.time ? ` · ${meeting.time}` : ""}
+            {recurrence ? ` · ${recurrence}` : ""}
           </p>
           <p>
             Last occurred:{" "}
@@ -130,6 +172,18 @@ export function MeetingCard({
         >
           Join in Teams
         </a>
+
+        <div>
+          <label className="text-[0.65rem] uppercase tracking-wide text-muted-foreground">
+            Recurrence
+          </label>
+          <MeetingRecurrenceControl
+            meetingId={meeting.id}
+            code={code}
+            recurrenceType={meeting.recurrenceType}
+            recurrenceLabel={meeting.recurrenceLabel}
+          />
+        </div>
 
         <div className="flex gap-2">
           <form action={markMeetingOccurred} className="flex-1">

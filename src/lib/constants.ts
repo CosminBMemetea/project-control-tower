@@ -69,6 +69,32 @@ export const WEEKDAY_LABELS: Record<(typeof WEEKDAYS)[number], string> = {
   SUNDAY: "Sunday",
 };
 
+export const RECURRENCE_TYPES = [
+  "WEEKLY",
+  "BIWEEKLY",
+  "EVERY_3_WEEKS",
+  "MONTHLY",
+  "CUSTOM",
+] as const;
+
+export const RECURRENCE_LABELS: Record<(typeof RECURRENCE_TYPES)[number], string> = {
+  WEEKLY: "Weekly",
+  BIWEEKLY: "Every 2 weeks",
+  EVERY_3_WEEKS: "Every 3 weeks",
+  MONTHLY: "Monthly",
+  CUSTOM: "Custom",
+};
+
+export const REPORT_TYPES = ["MID_MONTH", "END_MONTH", "WEEKLY", "CUSTOM"] as const;
+export type ReportType = (typeof REPORT_TYPES)[number];
+
+export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
+  MID_MONTH: "Mid-Month",
+  END_MONTH: "End-Month",
+  WEEKLY: "Weekly Status",
+  CUSTOM: "Custom",
+};
+
 export const GOAL_LEVEL_COLORS: Record<number, string> = {
   0: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
   25: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",

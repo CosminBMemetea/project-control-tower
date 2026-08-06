@@ -1,22 +1,25 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import {
-  currentReportingPeriod,
-  isMondayOrThursday,
-  mostRecentReportingDate,
-  toDateInputValue,
-} from "@/lib/period";
-import { GOAL_TYPES, GOAL_LABELS } from "@/lib/constants";
-import { addOrUpdateStatusReport, deleteStatusReport } from "@/lib/actions";
+import { currentReportingPeriod, toDateInputValue } from "@/lib/period";
+import { GOAL_TYPES, GOAL_LABELS, REPORT_TYPES, REPORT_TYPE_LABELS } from "@/lib/constants";
+import { reportLabel } from "@/lib/report-helpers";
+import { createReport, deleteReport } from "@/lib/actions";
 import { GoalProgressForm } from "@/components/goal-progress-form";
+import { ReportTypeBadge } from "@/components/report-type-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalBadge } from "@/components/goal-badge";
 import { Input } from "@/components/ui/input";
-import { ControlledInput } from "@/components/controlled-input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default async function ReportingPage({
   params,
@@ -35,7 +38,7 @@ export default async function ReportingPage({
         include: { answers: { include: { question: true } } },
       },
       managerApprovals: true,
-      statusReports: { orderBy: { reportDate: "desc" } },
+      reports: { orderBy: { reportDate: "desc" } },
     },
   });
 
@@ -48,99 +51,50 @@ export default async function ReportingPage({
   const latestSubmission = project.checklistSubmissions[0];
   const latestPresentation = project.quarterPresentations[0];
   const approvalsDone = project.managerApprovals.filter((a) => a.approved).length;
-  const defaultReportDate = toDateInputValue(mostRecentReportingDate());
+  const today = toDateInputValue(new Date());
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">
-            Status Reports — every Monday & Thursday
-          </CardTitle>
+          <CardTitle className="text-base">New Report</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Reports can be created for any past date — mid/end-month, weekly
+            status (Monday &amp; Thursday), or a custom one-off.
+          </p>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            {project.statusReports.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No status reports logged yet.
-              </p>
-            )}
-            {project.statusReports.map((report) => {
-              const reportDate = new Date(report.reportDate);
-              const weekday = reportDate.toLocaleDateString("en-US", {
-                weekday: "long",
-                timeZone: "UTC",
-              });
-              const onCadence = isMondayOrThursday(reportDate);
-              return (
-                <form
-                  key={report.id}
-                  action={addOrUpdateStatusReport}
-                  className="space-y-2 border-b pb-4 last:border-0 last:pb-0"
-                >
-                  <input type="hidden" name="id" value={report.id} />
-                  <input type="hidden" name="projectId" value={project.id} />
-                  <input type="hidden" name="code" value={project.code} />
-                  <input
-                    type="hidden"
-                    name="reportDate"
-                    value={toDateInputValue(reportDate)}
-                  />
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {toDateInputValue(reportDate)} · {weekday}
-                    </span>
-                    {!onCadence && (
-                      <Badge variant="outline">off-cadence</Badge>
-                    )}
-                  </div>
-                  <Textarea
-                    name="notes"
-                    defaultValue={report.notes ?? ""}
-                    rows={2}
-                    placeholder="Status notes for this date"
-                  />
-                  <div className="flex gap-2">
-                    <Button type="submit" size="sm" variant="outline">
-                      Save
-                    </Button>
-                    <Button
-                      type="submit"
-                      size="sm"
-                      variant="ghost"
-                      formAction={deleteStatusReport}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </form>
-              );
-            })}
-          </div>
-
+        <CardContent>
           <form
-            action={addOrUpdateStatusReport}
-            className="flex flex-wrap items-end gap-3 pt-2 border-t"
+            action={createReport}
+            className="flex flex-wrap items-end gap-3"
           >
             <input type="hidden" name="projectId" value={project.id} />
             <input type="hidden" name="code" value={project.code} />
             <div className="grid gap-1.5">
-              <label className="text-xs text-muted-foreground">
-                Report date (any past or current Monday/Thursday)
-              </label>
-              <ControlledInput
-                type="date"
-                name="reportDate"
-                defaultValue={defaultReportDate}
-                className="w-40"
-              />
+              <label className="text-xs text-muted-foreground">Type</label>
+              <select
+                name="type"
+                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+              >
+                {REPORT_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {REPORT_TYPE_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid gap-1.5">
+              <label className="text-xs text-muted-foreground">Date</label>
+              <Input type="date" name="reportDate" defaultValue={today} className="w-40" />
             </div>
             <div className="grid gap-1.5 flex-1 min-w-48">
-              <label className="text-xs text-muted-foreground">Notes</label>
-              <Input name="notes" placeholder="Status notes" />
+              <label className="text-xs text-muted-foreground">
+                Title (optional, mainly for Custom)
+              </label>
+              <Input name="title" placeholder="e.g. Steering committee update" />
             </div>
             <Button type="submit" size="sm">
-              Save Status Report
+              Create &amp; Edit
             </Button>
           </form>
         </CardContent>
@@ -148,9 +102,73 @@ export default async function ReportingPage({
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Report History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {project.reports.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No reports yet — create the first one above.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Report</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {project.reports.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="whitespace-nowrap">
+                      {toDateInputValue(new Date(r.reportDate))}
+                    </TableCell>
+                    <TableCell>
+                      <ReportTypeBadge type={r.type} />
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/projects/${project.code}/reporting/${r.id}`}
+                        className="hover:underline font-medium"
+                      >
+                        {reportLabel(r.type, new Date(r.reportDate), r.title)}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Link href={`/projects/${project.code}/reporting/${r.id}`}>
+                          <Button type="button" size="sm" variant="outline">
+                            Edit
+                          </Button>
+                        </Link>
+                        <form action={deleteReport}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <input type="hidden" name="code" value={project.code} />
+                          <Button type="submit" size="sm" variant="ghost">
+                            Delete
+                          </Button>
+                        </form>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">
-            {period} Report — Preview
+            {period} — Current Snapshot
           </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            A quick, always-current read on the project — separate from the
+            reports above.
+          </p>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div>

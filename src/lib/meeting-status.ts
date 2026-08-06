@@ -1,4 +1,4 @@
-import { WEEKDAYS } from "@/lib/constants";
+import { WEEKDAYS, RECURRENCE_LABELS } from "@/lib/constants";
 
 export type MeetingStatus = "ACTIVE" | "MISSING" | "NEEDS_UPDATE";
 
@@ -29,6 +29,17 @@ export function computeMeetingStatus(
   const daysSince =
     (Date.now() - meeting.lastOccurredAt.getTime()) / (1000 * 60 * 60 * 24);
   return daysSince > STALE_AFTER_DAYS ? "NEEDS_UPDATE" : "ACTIVE";
+}
+
+// "Weekly", "Every 3 weeks", or the custom free-text label — whatever
+// should be shown next to a meeting. Null when no recurrence is set yet.
+export function recurrenceDisplay(
+  type: string | null | undefined,
+  label: string | null | undefined
+): string | null {
+  if (!type) return null;
+  if (type === "CUSTOM") return label || "Custom";
+  return RECURRENCE_LABELS[type as keyof typeof RECURRENCE_LABELS] ?? type;
 }
 
 const WEEKDAY_INDEX: Record<string, number> = Object.fromEntries(

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { currentReportingPeriod } from "@/lib/period";
 import { STRUCTURE_HIERARCHY_ITEMS, type GoalType } from "@/lib/constants";
@@ -9,11 +10,43 @@ function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
 
-function revalidateProject(code: string) {
+function revalidateGlobal() {
   revalidatePath("/portfolio");
+  revalidatePath("/portfolio/monthly-summary");
   revalidatePath("/projects");
   revalidatePath("/approvals");
+}
+
+function revalidateProject(code: string) {
+  revalidateGlobal();
   revalidatePath(`/projects/${code}`, "layout");
+}
+
+// Template changes affect every project's reporting tab, not just one —
+// the bracketed pattern revalidates every route matching that dynamic
+// segment without needing to know all project codes up front.
+function revalidateAllProjectReportingTabs() {
+  revalidateGlobal();
+  revalidatePath("/projects/[code]", "layout");
+}
+
+// CUSTOM is the only recurrence type that carries free text — anything
+// else ignores whatever is in the label field, so a stale custom label
+// can never resurface after switching to a preset.
+function recurrenceData(formData: FormData) {
+  const recurrenceType = str(formData, "recurrenceType");
+  const recurrenceLabel = str(formData, "recurrenceLabel");
+  return {
+    recurrenceType: recurrenceType || null,
+    recurrenceLabel: recurrenceType === "CUSTOM" ? recurrenceLabel || null : null,
+  };
+}
+
+// Report dates are interpreted as UTC midnight so the stored date always
+// matches the calendar day picked in the date input, regardless of
+// server timezone.
+function parseDateInput(value: string): Date {
+  return new Date(`${value}T00:00:00.000Z`);
 }
 
 export async function updateProjectLinks(formData: FormData) {
@@ -147,6 +180,7 @@ export async function addTeamsMeeting(formData: FormData) {
       url,
       dayOfWeek: dayOfWeek || null,
       time: time || null,
+      ...recurrenceData(formData),
     },
   });
   revalidateProject(code);
@@ -173,6 +207,7 @@ export async function upsertCoreMeeting(formData: FormData) {
     url,
     dayOfWeek: dayOfWeek || null,
     time: time || null,
+    ...recurrenceData(formData),
   };
 
   if (existing) {
@@ -185,6 +220,9 @@ export async function upsertCoreMeeting(formData: FormData) {
 
 // Edits any existing meeting row by id — used for both core meeting cards
 // and custom ("OTHER") meeting cards, since both already have a stable id.
+// Deliberately doesn't touch recurrence: that's owned solely by
+// setMeetingRecurrence's quick control, so saving url/day/time here can
+// never silently wipe a recurrence someone just set.
 export async function updateTeamsMeeting(formData: FormData) {
   const id = str(formData, "id");
   const code = str(formData, "code");
@@ -196,6 +234,26 @@ export async function updateTeamsMeeting(formData: FormData) {
   await prisma.teamsMeeting.update({
     where: { id },
     data: { url, dayOfWeek: dayOfWeek || null, time: time || null },
+  });
+  revalidateProject(code);
+}
+
+// Auto-saved the moment the recurrence dropdown changes, from the
+// Meeting Map's compact recurrence control — independent of the
+// url/day/time edit form so it can be set retroactively in one click
+// without opening the full edit panel.
+export async function setMeetingRecurrence(
+  id: string,
+  code: string,
+  recurrenceType: string,
+  recurrenceLabel: string
+) {
+  await prisma.teamsMeeting.update({
+    where: { id },
+    data: {
+      recurrenceType: recurrenceType || null,
+      recurrenceLabel: recurrenceType === "CUSTOM" ? recurrenceLabel || null : null,
+    },
   });
   revalidateProject(code);
 }
@@ -256,30 +314,148 @@ export async function submitChecklistAnswers(formData: FormData) {
   revalidateProject(code);
 }
 
-export async function addOrUpdateStatusReport(formData: FormData) {
+// Creates the report row, then redirects straight to its edit page so
+// the sections can be filled in. Doesn't pre-create ReportSectionEntry
+// rows — the edit page renders one field per *current* template section
+// regardless, and saveReportSections upserts on save.
+export async function createReport(formData: FormData) {
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
+  const type = str(formData, "type");
   const reportDateStr = str(formData, "reportDate");
-  const notes = str(formData, "notes");
-  if (!reportDateStr) return;
+  const title = str(formData, "title");
+  if (!type || !reportDateStr) return;
 
-  // Interpreted as UTC midnight so the stored date always matches the
-  // calendar day the user picked, regardless of server timezone.
-  const reportDate = new Date(`${reportDateStr}T00:00:00.000Z`);
+  const report = await prisma.report.create({
+    data: {
+      projectId,
+      type,
+      reportDate: parseDateInput(reportDateStr),
+      title: title || null,
+    },
+  });
+  revalidateProject(code);
+  redirect(`/projects/${code}/reporting/${report.id}`);
+}
 
-  await prisma.statusReport.upsert({
-    where: { projectId_reportDate: { projectId, reportDate } },
-    update: { notes: notes || null },
-    create: { projectId, reportDate, notes: notes || null },
+export async function updateReportMeta(formData: FormData) {
+  const id = str(formData, "id");
+  const code = str(formData, "code");
+  const type = str(formData, "type");
+  const reportDateStr = str(formData, "reportDate");
+  const title = str(formData, "title");
+  if (!type || !reportDateStr) return;
+
+  await prisma.report.update({
+    where: { id },
+    data: {
+      type,
+      reportDate: parseDateInput(reportDateStr),
+      title: title || null,
+    },
   });
   revalidateProject(code);
 }
 
-export async function deleteStatusReport(formData: FormData) {
+// One combined save for the whole report — every section is part of the
+// same editing session, so there's no "sibling form" staleness risk the
+// way there was with independent per-row toggles elsewhere in the app.
+export async function saveReportSections(formData: FormData) {
+  const reportId = str(formData, "reportId");
+  const code = str(formData, "code");
+  const sectionIds = formData.getAll("sectionId").map(String);
+
+  await Promise.all(
+    sectionIds.map((sectionId) =>
+      prisma.reportSectionEntry.upsert({
+        where: { reportId_sectionId: { reportId, sectionId } },
+        update: {
+          content: str(formData, `content_${sectionId}`) || null,
+          links: str(formData, `links_${sectionId}`) || null,
+        },
+        create: {
+          reportId,
+          sectionId,
+          content: str(formData, `content_${sectionId}`) || null,
+          links: str(formData, `links_${sectionId}`) || null,
+        },
+      })
+    )
+  );
+  revalidateProject(code);
+}
+
+export async function deleteReport(formData: FormData) {
   const id = str(formData, "id");
   const code = str(formData, "code");
-  await prisma.statusReport.delete({ where: { id } });
+  await prisma.report.delete({ where: { id } });
   revalidateProject(code);
+  redirect(`/projects/${code}/reporting`);
+}
+
+// --- Report template management (Report Template settings page) ---
+
+export async function addTemplateSection(formData: FormData) {
+  const label = str(formData, "label");
+  const hasLinks = formData.get("hasLinks") === "on";
+  if (!label) return;
+
+  const last = await prisma.reportTemplateSection.findFirst({
+    orderBy: { order: "desc" },
+  });
+  await prisma.reportTemplateSection.create({
+    data: { label, hasLinks, order: (last?.order ?? 0) + 1 },
+  });
+  revalidatePath("/report-template");
+  revalidateAllProjectReportingTabs();
+}
+
+export async function updateTemplateSection(formData: FormData) {
+  const id = str(formData, "id");
+  const label = str(formData, "label");
+  const hasLinks = formData.get("hasLinks") === "on";
+  if (!label) return;
+
+  await prisma.reportTemplateSection.update({
+    where: { id },
+    data: { label, hasLinks },
+  });
+  revalidatePath("/report-template");
+  revalidateAllProjectReportingTabs();
+}
+
+export async function deleteTemplateSection(formData: FormData) {
+  const id = str(formData, "id");
+  await prisma.reportTemplateSection.delete({ where: { id } });
+  revalidatePath("/report-template");
+  revalidateAllProjectReportingTabs();
+}
+
+export async function moveTemplateSection(formData: FormData) {
+  const id = str(formData, "id");
+  const direction = str(formData, "direction"); // "up" | "down"
+
+  const sections = await prisma.reportTemplateSection.findMany({
+    orderBy: { order: "asc" },
+  });
+  const index = sections.findIndex((s) => s.id === id);
+  const swapWith = direction === "up" ? index - 1 : index + 1;
+  if (index === -1 || swapWith < 0 || swapWith >= sections.length) return;
+
+  const a = sections[index];
+  const b = sections[swapWith];
+  await prisma.$transaction([
+    prisma.reportTemplateSection.update({
+      where: { id: a.id },
+      data: { order: b.order },
+    }),
+    prisma.reportTemplateSection.update({
+      where: { id: b.id },
+      data: { order: a.order },
+    }),
+  ]);
+  revalidatePath("/report-template");
+  revalidateAllProjectReportingTabs();
 }
 
 export async function addComplianceCheck(formData: FormData) {
