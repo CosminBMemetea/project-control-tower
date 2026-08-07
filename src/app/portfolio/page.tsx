@@ -7,12 +7,15 @@ import {
   GOAL_LABELS,
   CORE_MEETING_TYPES,
   MEETING_TYPE_LABELS,
+  isHighSeverity,
 } from "@/lib/constants";
 import { currentQuarter } from "@/lib/period";
 import { computeMeetingStatus } from "@/lib/meeting-status";
 import { computeChecklistStatus } from "@/lib/checklist-status";
 import { GoalBadge } from "@/components/goal-badge";
 import { GoalLevelSelect } from "@/components/goal-level-select";
+import { RagStatusControl } from "@/components/rag-status-control";
+import { FteInput } from "@/components/fte-input";
 import {
   Table,
   TableBody,
@@ -32,6 +35,7 @@ export default async function PortfolioPage() {
       teamsMeetings: true,
       managerApprovals: true,
       checklistSubmissions: true,
+      risks: true,
     },
     orderBy: { name: "asc" },
   });
@@ -76,8 +80,30 @@ export default async function PortfolioPage() {
     if (computeChecklistStatus(p.checklistSubmissions) !== "ACTIVE") {
       issues.push("Reporting Checklist verification overdue");
     }
+    const highSeverityRisks = p.risks.filter(
+      (r) => r.status !== "CLOSED" && isHighSeverity(r)
+    );
+    if (highSeverityRisks.length > 0) {
+      issues.push(
+        `${highSeverityRisks.length} high-severity risk(s) open: ${highSeverityRisks
+          .map((r) => r.title)
+          .join(", ")}`
+      );
+    }
     return issues.map((issue) => ({ project: p, issue }));
   });
+
+  const riskSummary = projects
+    .map((p) => {
+      const open = p.risks.filter((r) => r.status !== "CLOSED");
+      return {
+        project: p,
+        open: open.length,
+        highSeverity: open.filter(isHighSeverity).length,
+      };
+    })
+    .filter((r) => r.open > 0)
+    .sort((a, b) => b.highSeverity - a.highSeverity || b.open - a.open);
 
   return (
     <div className="space-y-8">
@@ -117,6 +143,12 @@ export default async function PortfolioPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Project</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">
+                    RAG
+                  </TableHead>
+                  <TableHead className="text-center whitespace-nowrap">
+                    FTE
+                  </TableHead>
                   {GOAL_TYPES.map((g) => (
                     <TableHead key={g} className="text-center whitespace-nowrap">
                       {GOAL_SHORT_LABELS[g]}
@@ -150,6 +182,22 @@ export default async function PortfolioPage() {
                         >
                           {project.name}
                         </Link>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <RagStatusControl
+                          projectId={project.id}
+                          code={project.code}
+                          status={project.ragStatus}
+                          compact
+                        />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <FteInput
+                          projectId={project.id}
+                          code={project.code}
+                          value={project.allocatedFte}
+                          compact
+                        />
                       </TableCell>
                       {GOAL_TYPES.map((g, i) => (
                         <TableCell key={g} className="text-center">
@@ -213,6 +261,59 @@ export default async function PortfolioPage() {
               </TableBody>
             </Table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Risk Register Summary</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Open risks per project — high severity means both Impact and
+            Probability are set to High.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {riskSummary.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No open risks across the portfolio.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Project</TableHead>
+                    <TableHead className="text-center">Open Risks</TableHead>
+                    <TableHead className="text-center">
+                      High Severity
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {riskSummary.map(({ project, open, highSeverity }) => (
+                    <TableRow key={project.id}>
+                      <TableCell className="font-medium whitespace-nowrap">
+                        <Link
+                          href={`/projects/${project.code}/risks`}
+                          className="hover:underline"
+                        >
+                          {project.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-center">{open}</TableCell>
+                      <TableCell className="text-center">
+                        {highSeverity > 0 ? (
+                          <Badge variant="destructive">{highSeverity}</Badge>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 

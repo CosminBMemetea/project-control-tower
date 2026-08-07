@@ -104,6 +104,53 @@ export const GOAL_LEVEL_COLORS: Record<number, string> = {
   120: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
 };
 
+// RAG status — current delivery health for the project as a whole.
+export const RAG_STATUSES = ["GREEN", "AMBER", "RED"] as const;
+export type RagStatus = (typeof RAG_STATUSES)[number];
+
+export const RAG_LABELS: Record<RagStatus, string> = {
+  GREEN: "Green",
+  AMBER: "Amber",
+  RED: "Red",
+};
+
+export const RAG_COLORS: Record<RagStatus, string> = {
+  GREEN: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  AMBER: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  RED: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+};
+
+// Risk Register — impact / probability / status vocabularies.
+export const RISK_LEVELS = ["LOW", "MEDIUM", "HIGH"] as const;
+export type RiskLevel = (typeof RISK_LEVELS)[number];
+
+export const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
+  LOW: "Low",
+  MEDIUM: "Medium",
+  HIGH: "High",
+};
+
+export const RISK_LEVEL_COLORS: Record<RiskLevel, string> = {
+  LOW: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  MEDIUM: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  HIGH: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+};
+
+export const RISK_STATUSES = ["OPEN", "MITIGATING", "CLOSED"] as const;
+export type RiskStatus = (typeof RISK_STATUSES)[number];
+
+export const RISK_STATUS_LABELS: Record<RiskStatus, string> = {
+  OPEN: "Open",
+  MITIGATING: "Mitigating",
+  CLOSED: "Closed",
+};
+
+// A risk both very likely and very damaging — surfaced as an explicit
+// portfolio-level action item, distinct from just "open".
+export function isHighSeverity(risk: { impact: string; probability: string }) {
+  return risk.impact === "HIGH" && risk.probability === "HIGH";
+}
+
 export const STRUCTURE_HIERARCHY_ITEMS = [
   { field: "epicsPlanned", label: "Epics per year planned" },
   { field: "userStoriesPlanned", label: "User Stories per quarter planned" },

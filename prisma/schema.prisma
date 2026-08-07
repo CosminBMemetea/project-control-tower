@@ -33,6 +33,14 @@ model Project {
   tasksPlanned       Boolean @default(false)
   sprintsDefined     Boolean @default(false)
 
+  // Resources
+  allocatedFte Float @default(0)
+
+  // RAG status — current delivery health, changeable any time
+  ragStatus   String    @default("GREEN") // RED | AMBER | GREEN
+  ragComment  String? // optional short reason for the current status
+  ragUpdatedAt DateTime?
+
   quarterPresentations QuarterPresentation[]
   teamsMeetings        TeamsMeeting[]
   managerApprovals     ManagerApproval[]
@@ -41,6 +49,7 @@ model Project {
   complianceChecks     ComplianceCheck[]
   reports              Report[]
   monitoringResponses  MonitoringResponse[]
+  risks                Risk[]
 }
 
 // Planning & Tracking: one row per quarter presentation link
@@ -225,6 +234,28 @@ model ReportSectionEntry {
   links   String? // one link per line, only shown when section.hasLinks
 
   @@unique([reportId, sectionId])
+}
+
+// Per-project Risk Register entry
+model Risk {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+
+  impact      String // HIGH | MEDIUM | LOW
+  probability String // HIGH | MEDIUM | LOW
+  status      String @default("OPEN") // OPEN | MITIGATING | CLOSED
+  owner       String
+
+  mitigationPlan String?
+  identifiedAt   DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Execution Assurance (RUN): compliance checks + deviations

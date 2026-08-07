@@ -8,6 +8,7 @@ const TABS = [
   { slug: "environment", label: "Environment & Rules" },
   { slug: "planning", label: "Planning & Tracking" },
   { slug: "meetings", label: "Meetings & Cadence" },
+  { slug: "risks", label: "Risk Register" },
   { slug: "reporting", label: "Reporting" },
   { slug: "checklist", label: "Checklist" },
   { slug: "monitoring", label: "Monitoring" },

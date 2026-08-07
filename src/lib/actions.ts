@@ -579,6 +579,120 @@ export async function addComplianceCheck(
   revalidateProject(code);
 }
 
+// --- Resources (FTE) ---
+
+// Auto-saved on blur from the FTE input — used on both the Portfolio
+// Overview grid and the per-project header, same "one save path" idea as
+// setGoalLevel.
+export async function setAllocatedFte(
+  projectId: string,
+  code: string,
+  value: number
+) {
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { allocatedFte: value },
+  });
+  revalidateProject(code);
+}
+
+// --- RAG status ---
+
+// Auto-saved the moment the dropdown changes — independent of the
+// comment field below so changing status can never get blocked on (or
+// clobbered by) an in-progress comment edit.
+export async function setRagStatus(
+  projectId: string,
+  code: string,
+  status: string
+) {
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { ragStatus: status, ragUpdatedAt: new Date() },
+  });
+  revalidateProject(code);
+}
+
+export async function setRagComment(formData: FormData) {
+  const projectId = str(formData, "projectId");
+  const code = str(formData, "code");
+  const ragComment = str(formData, "ragComment");
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { ragComment: ragComment || null },
+  });
+  revalidateProject(code);
+}
+
+// --- Risk Register ---
+
+export async function addRisk(formData: FormData): Promise<ActionResult> {
+  const projectId = str(formData, "projectId");
+  const code = str(formData, "code");
+  const title = str(formData, "title");
+  const owner = str(formData, "owner");
+  const impact = str(formData, "impact");
+  const probability = str(formData, "probability");
+  const identifiedAtStr = str(formData, "identifiedAt");
+  const description = str(formData, "description");
+  const mitigationPlan = str(formData, "mitigationPlan");
+  if (!title || !owner) return { error: "Title and owner are both required." };
+
+  await prisma.risk.create({
+    data: {
+      projectId,
+      title,
+      owner,
+      impact: impact || "MEDIUM",
+      probability: probability || "MEDIUM",
+      status: "OPEN",
+      identifiedAt: identifiedAtStr ? parseDateInput(identifiedAtStr) : new Date(),
+      description: description || null,
+      mitigationPlan: mitigationPlan || null,
+    },
+  });
+  revalidateProject(code);
+}
+
+// One combined save per risk — title/description/impact/probability/
+// owner/mitigation/status/date all edited together, so "closing" a risk
+// is just picking Closed here and saving like any other field.
+export async function updateRisk(formData: FormData): Promise<ActionResult> {
+  const id = str(formData, "id");
+  const code = str(formData, "code");
+  const title = str(formData, "title");
+  const owner = str(formData, "owner");
+  const impact = str(formData, "impact");
+  const probability = str(formData, "probability");
+  const status = str(formData, "status");
+  const identifiedAtStr = str(formData, "identifiedAt");
+  const description = str(formData, "description");
+  const mitigationPlan = str(formData, "mitigationPlan");
+  if (!title || !owner) return { error: "Title and owner are both required." };
+
+  await prisma.risk.update({
+    where: { id },
+    data: {
+      title,
+      owner,
+      impact: impact || "MEDIUM",
+      probability: probability || "MEDIUM",
+      status: status || "OPEN",
+      identifiedAt: identifiedAtStr ? parseDateInput(identifiedAtStr) : undefined,
+      description: description || null,
+      mitigationPlan: mitigationPlan || null,
+    },
+  });
+  revalidateProject(code);
+}
+
+export async function deleteRisk(formData: FormData) {
+  const id = str(formData, "id");
+  const code = str(formData, "code");
+  await prisma.risk.delete({ where: { id } });
+  revalidateProject(code);
+}
+
 export async function toggleComplianceCompliant(formData: FormData) {
   const id = str(formData, "id");
   const code = str(formData, "code");
