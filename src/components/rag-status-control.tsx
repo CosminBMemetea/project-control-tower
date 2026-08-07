@@ -77,6 +77,7 @@ export function RagStatusControl({
             name="ragComment"
             placeholder="Optional reason for current status"
             defaultValue={comment ?? ""}
+            maxLength={200}
             className="h-8 text-sm w-64"
           />
           <Button type="submit" size="sm" variant="outline">

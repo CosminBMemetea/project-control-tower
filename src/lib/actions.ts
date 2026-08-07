@@ -5,7 +5,18 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, getAppBaseUrl } from "@/lib/email";
-import { CHECKLIST_QUESTIONS, STRUCTURE_HIERARCHY_ITEMS, type GoalType } from "@/lib/constants";
+import {
+  CHECKLIST_QUESTIONS,
+  STRUCTURE_HIERARCHY_ITEMS,
+  MAX_ALLOCATED_FTE,
+  RAG_STATUSES,
+  RISK_LEVELS,
+  RISK_STATUSES,
+  type GoalType,
+  type RagStatus,
+  type RiskLevel,
+  type RiskStatus,
+} from "@/lib/constants";
 
 function str(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
@@ -19,6 +30,14 @@ function str(formData: FormData, key: string): string {
 export type ActionResult = { error: string } | { info: string } | void;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isRiskLevel(v: string): v is RiskLevel {
+  return (RISK_LEVELS as readonly string[]).includes(v);
+}
+function isRiskStatus(v: string): v is RiskStatus {
+  return (RISK_STATUSES as readonly string[]).includes(v);
+}
 
 function revalidateGlobal() {
   revalidatePath("/portfolio");
@@ -583,15 +602,20 @@ export async function addComplianceCheck(
 
 // Auto-saved on blur from the FTE input — used on both the Portfolio
 // Overview grid and the per-project header, same "one save path" idea as
-// setGoalLevel.
+// setGoalLevel. Clamped server-side too (not just in FteInput) since this
+// is called directly as a Server Action RPC, not via a validated form —
+// a crafted call could otherwise pass NaN/Infinity/negative values.
 export async function setAllocatedFte(
   projectId: string,
   code: string,
   value: number
 ) {
+  const safeValue = Number.isFinite(value)
+    ? Math.min(Math.max(value, 0), MAX_ALLOCATED_FTE)
+    : 0;
   await prisma.project.update({
     where: { id: projectId },
-    data: { allocatedFte: value },
+    data: { allocatedFte: safeValue },
   });
   revalidateProject(code);
 }
@@ -600,15 +624,22 @@ export async function setAllocatedFte(
 
 // Auto-saved the moment the dropdown changes — independent of the
 // comment field below so changing status can never get blocked on (or
-// clobbered by) an in-progress comment edit.
+// clobbered by) an in-progress comment edit. Falls back to GREEN rather
+// than trusting the caller, for the same RPC-hardening reason as
+// setAllocatedFte above.
 export async function setRagStatus(
   projectId: string,
   code: string,
   status: string
 ) {
+  const safeStatus: RagStatus = (RAG_STATUSES as readonly string[]).includes(
+    status
+  )
+    ? (status as RagStatus)
+    : "GREEN";
   await prisma.project.update({
     where: { id: projectId },
-    data: { ragStatus: status, ragUpdatedAt: new Date() },
+    data: { ragStatus: safeStatus, ragUpdatedAt: new Date() },
   });
   revalidateProject(code);
 }
@@ -637,14 +668,20 @@ export async function addRisk(formData: FormData): Promise<ActionResult> {
   const description = str(formData, "description");
   const mitigationPlan = str(formData, "mitigationPlan");
   if (!title || !owner) return { error: "Title and owner are both required." };
+  if (!isRiskLevel(impact) || !isRiskLevel(probability)) {
+    return { error: "Impact and probability must be Low, Medium, or High." };
+  }
+  if (identifiedAtStr && !DATE_RE.test(identifiedAtStr)) {
+    return { error: "Date identified must be a valid date." };
+  }
 
   await prisma.risk.create({
     data: {
       projectId,
       title,
       owner,
-      impact: impact || "MEDIUM",
-      probability: probability || "MEDIUM",
+      impact,
+      probability,
       status: "OPEN",
       identifiedAt: identifiedAtStr ? parseDateInput(identifiedAtStr) : new Date(),
       description: description || null,
@@ -669,15 +706,24 @@ export async function updateRisk(formData: FormData): Promise<ActionResult> {
   const description = str(formData, "description");
   const mitigationPlan = str(formData, "mitigationPlan");
   if (!title || !owner) return { error: "Title and owner are both required." };
+  if (!isRiskLevel(impact) || !isRiskLevel(probability)) {
+    return { error: "Impact and probability must be Low, Medium, or High." };
+  }
+  if (!isRiskStatus(status)) {
+    return { error: "Status must be Open, Mitigating, or Closed." };
+  }
+  if (identifiedAtStr && !DATE_RE.test(identifiedAtStr)) {
+    return { error: "Date identified must be a valid date." };
+  }
 
   await prisma.risk.update({
     where: { id },
     data: {
       title,
       owner,
-      impact: impact || "MEDIUM",
-      probability: probability || "MEDIUM",
-      status: status || "OPEN",
+      impact,
+      probability,
+      status,
       identifiedAt: identifiedAtStr ? parseDateInput(identifiedAtStr) : undefined,
       description: description || null,
       mitigationPlan: mitigationPlan || null,

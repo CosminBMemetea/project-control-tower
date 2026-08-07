@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { setAllocatedFte } from "@/lib/actions";
+import { MAX_ALLOCATED_FTE } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 
 // Auto-saves on blur (not per-keystroke, since it's free-text entry, not
@@ -30,7 +31,9 @@ export function FteInput({
 
   function commit() {
     const parsed = Number(value);
-    const next = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    const next = Number.isFinite(parsed)
+      ? Math.min(Math.max(parsed, 0), MAX_ALLOCATED_FTE)
+      : 0;
     setValue(String(next));
     if (next === serverValue) return;
     startTransition(async () => {
@@ -43,6 +46,7 @@ export function FteInput({
       type="number"
       inputMode="decimal"
       min={0}
+      max={MAX_ALLOCATED_FTE}
       step={0.1}
       aria-label="Allocated FTE"
       value={value}

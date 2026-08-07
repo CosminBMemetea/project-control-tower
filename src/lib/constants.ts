@@ -104,6 +104,11 @@ export const GOAL_LEVEL_COLORS: Record<number, string> = {
   120: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
 };
 
+// Sanity ceiling for a single project's Allocated FTE — guards against a
+// stray extra digit or scientific-notation entry (e.g. "1e10") producing
+// an absurd value with no feedback. Not a real staffing constraint.
+export const MAX_ALLOCATED_FTE = 500;
+
 // RAG status — current delivery health for the project as a whole.
 export const RAG_STATUSES = ["GREEN", "AMBER", "RED"] as const;
 export type RagStatus = (typeof RAG_STATUSES)[number];

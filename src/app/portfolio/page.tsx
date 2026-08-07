@@ -20,6 +20,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -92,6 +93,8 @@ export default async function PortfolioPage() {
     }
     return issues.map((issue) => ({ project: p, issue }));
   });
+
+  const totalFte = projects.reduce((sum, p) => sum + p.allocatedFte, 0);
 
   const riskSummary = projects
     .map((p) => {
@@ -217,6 +220,21 @@ export default async function PortfolioPage() {
                     </TableRow>
                   ))}
               </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell className="font-medium">
+                    Total ({projects.length} projects)
+                  </TableCell>
+                  <TableCell />
+                  <TableCell className="text-center font-semibold tabular-nums">
+                    {totalFte}
+                  </TableCell>
+                  {GOAL_TYPES.map((g) => (
+                    <TableCell key={g} />
+                  ))}
+                  <TableCell />
+                </TableRow>
+              </TableFooter>
             </Table>
           </div>
         </CardContent>
