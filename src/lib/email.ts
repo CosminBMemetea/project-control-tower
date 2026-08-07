@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { headers } from "next/headers";
+import { APP_CONFIG } from "@config/app";
 
 // Generic SMTP so this works with whatever mail relay is available
 // (Office 365, Gmail, an internal relay) — nothing vendor-specific.
@@ -66,7 +67,7 @@ export async function sendEmail({
 
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_FROM ?? "R&I Control Tower <noreply@localhost>",
+      from: process.env.SMTP_FROM ?? `${APP_CONFIG.name} <noreply@localhost>`,
       to,
       subject,
       html,

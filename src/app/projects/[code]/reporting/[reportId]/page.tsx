@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Save, Trash2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { toDateInputValue } from "@/lib/period";
 import { REPORT_TYPES, REPORT_TYPE_LABELS } from "@/lib/constants";
@@ -101,6 +102,7 @@ export default async function ReportEditPage({
               <ControlledInput name="title" defaultValue={report.title ?? ""} />
             </div>
             <Button type="submit" size="sm" variant="outline">
+              <Save className="size-3.5" />
               Save Details
             </Button>
           </ActionForm>
@@ -155,7 +157,7 @@ export default async function ReportEditPage({
                         name={`links_${section.id}`}
                         defaultValue={entry?.links ?? ""}
                         rows={3}
-                        placeholder="One link per line, e.g. https://codebeamer.example/item/1234"
+                        placeholder="One link per line, e.g. https://tracker.example/item/1234"
                         className="text-xs"
                       />
                     </div>
@@ -167,7 +169,10 @@ export default async function ReportEditPage({
         )}
 
         {sections.length > 0 && (
-          <Button type="submit">Save Report</Button>
+          <Button type="submit">
+            <Save className="size-3.5" />
+            Save Report
+          </Button>
         )}
       </form>
 
@@ -177,6 +182,7 @@ export default async function ReportEditPage({
         <input type="hidden" name="id" value={report.id} />
         <input type="hidden" name="code" value={project.code} />
         <Button type="submit" variant="destructive" size="sm">
+          <Trash2 className="size-3.5" />
           Delete Report
         </Button>
       </form>

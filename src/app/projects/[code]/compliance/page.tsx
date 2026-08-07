@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
+import { Plus, ClipboardCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { addComplianceCheck, toggleComplianceCompliant } from "@/lib/actions";
+import { GOAL_LABELS } from "@/lib/constants";
 import { GoalProgressForm } from "@/components/goal-progress-form";
+import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,7 +36,7 @@ export default async function CompliancePage({
     <div className="space-y-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">Execution Assurance (RUN)</CardTitle>
+          <CardTitle className="text-base">{GOAL_LABELS.EXECUTION_ASSURANCE}</CardTitle>
           <Badge variant={deviations.length === 0 ? "default" : "outline"}>
             {deviations.length === 0
               ? "No open deviations"
@@ -43,9 +46,7 @@ export default async function CompliancePage({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             {project.complianceChecks.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No compliance checks logged yet.
-              </p>
+              <EmptyState icon={ClipboardCheck} title="No compliance checks logged yet" />
             )}
             {project.complianceChecks.map((c) => (
               <div
@@ -88,6 +89,7 @@ export default async function CompliancePage({
               Compliant
             </label>
             <Button type="submit" size="sm">
+              <Plus className="size-3.5" />
               Log Check
             </Button>
           </ActionForm>

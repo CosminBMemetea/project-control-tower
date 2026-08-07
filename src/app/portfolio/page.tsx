@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FolderKanban, AlertOctagon, ShieldAlert, Radar, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import {
   GOAL_TYPES,
@@ -12,6 +13,7 @@ import {
   HEALTH_TIER_COLORS,
   HEALTH_DIMENSION_LABELS,
   HEALTH_WEAK_THRESHOLD,
+  EXECUTIVE_APPROVAL_LABEL,
 } from "@/lib/constants";
 import { currentQuarter } from "@/lib/period";
 import { computeMeetingStatus } from "@/lib/meeting-status";
@@ -22,6 +24,7 @@ import { GoalLevelSelect } from "@/components/goal-level-select";
 import { RagStatusControl } from "@/components/rag-status-control";
 import { FteInput } from "@/components/fte-input";
 import { RadarChart } from "@/components/radar-chart";
+import { StatCard } from "@/components/stat-card";
 import { cn } from "@/lib/utils";
 import {
   Table,
@@ -84,7 +87,7 @@ export default async function PortfolioPage() {
       );
     }
     if (!p.managerApprovals.every((a) => a.approved)) {
-      issues.push("120% approval incomplete");
+      issues.push(`${EXECUTIVE_APPROVAL_LABEL} incomplete`);
     }
     if (computeChecklistStatus(p.checklistSubmissions) !== "ACTIVE") {
       issues.push("Reporting Checklist verification overdue");
@@ -131,6 +134,13 @@ export default async function PortfolioPage() {
     .map((p) => ({ project: p, stats: computeHealthStats(p.healthScores) }))
     .sort((a, b) => a.stats.average - b.stats.average); // most out of shape first
 
+  const redCount = projects.filter((p) => p.ragStatus === "RED").length;
+  const totalOpenRisks = riskSummary.reduce((sum, r) => sum + r.open, 0);
+  const totalHighSeverityRisks = riskSummary.reduce((sum, r) => sum + r.highSeverity, 0);
+  const outOfShapeCount = healthSummary.filter(
+    ({ stats }) => stats.spread >= 3 || healthTier(stats.average) === "CRITICAL"
+  ).length;
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -139,7 +149,7 @@ export default async function PortfolioPage() {
             Portfolio Overview
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Coverage across the 6 goal tracks for every R&I project · current
+            Coverage across the 6 goal tracks for every project · current
             period {quarter}
           </p>
         </div>
@@ -151,6 +161,30 @@ export default async function PortfolioPage() {
             Monthly Consolidated Summary →
           </Badge>
         </Link>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <StatCard icon={FolderKanban} label="Projects" value={projects.length} />
+        <StatCard
+          icon={AlertOctagon}
+          label="Red RAG"
+          value={redCount}
+          tone={redCount > 0 ? "critical" : "good"}
+        />
+        <StatCard
+          icon={ShieldAlert}
+          label="Open risks"
+          value={totalOpenRisks}
+          sub={totalHighSeverityRisks > 0 ? `${totalHighSeverityRisks} high severity` : undefined}
+          tone={totalHighSeverityRisks > 0 ? "critical" : totalOpenRisks > 0 ? "watch" : "good"}
+        />
+        <StatCard
+          icon={Radar}
+          label="Out of shape"
+          value={outOfShapeCount}
+          tone={outOfShapeCount > 0 ? "watch" : "good"}
+        />
+        <StatCard icon={Users} label="Total FTE" value={totalFte} />
       </div>
 
       <Card>

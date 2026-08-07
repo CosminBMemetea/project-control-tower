@@ -1,3 +1,4 @@
+import { ArrowUp, ArrowDown, Save, Trash2, Plus, FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import {
   addTemplateSection,
@@ -5,6 +6,7 @@ import {
   deleteTemplateSection,
   moveTemplateSection,
 } from "@/lib/actions";
+import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ControlledInput } from "@/components/controlled-input";
 import { ControlledCheckbox } from "@/components/controlled-checkbox";
@@ -36,9 +38,7 @@ export default async function ReportTemplatePage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {sections.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              No sections defined yet — add one below.
-            </p>
+            <EmptyState icon={FileText} title="No sections defined yet" description="Add one below." />
           )}
           {sections.map((section, i) => (
             <div
@@ -54,8 +54,9 @@ export default async function ReportTemplatePage() {
                     size="icon-xs"
                     variant="ghost"
                     disabled={i === 0}
+                    aria-label="Move up"
                   >
-                    ↑
+                    <ArrowUp />
                   </Button>
                 </form>
                 <form action={moveTemplateSection}>
@@ -66,8 +67,9 @@ export default async function ReportTemplatePage() {
                     size="icon-xs"
                     variant="ghost"
                     disabled={i === sections.length - 1}
+                    aria-label="Move down"
                   >
-                    ↓
+                    <ArrowDown />
                   </Button>
                 </form>
               </div>
@@ -87,6 +89,7 @@ export default async function ReportTemplatePage() {
                   Supports links
                 </label>
                 <Button type="submit" size="sm" variant="outline">
+                  <Save className="size-3.5" />
                   Save
                 </Button>
               </ActionForm>
@@ -94,6 +97,7 @@ export default async function ReportTemplatePage() {
               <form action={deleteTemplateSection}>
                 <input type="hidden" name="id" value={section.id} />
                 <Button type="submit" size="sm" variant="ghost">
+                  <Trash2 className="size-3.5" />
                   Remove
                 </Button>
               </form>
@@ -115,6 +119,7 @@ export default async function ReportTemplatePage() {
               Supports links
             </label>
             <Button type="submit" size="sm">
+              <Plus className="size-3.5" />
               Add Section
             </Button>
           </ActionForm>

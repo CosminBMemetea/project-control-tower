@@ -1,31 +1,23 @@
-export const GOAL_TYPES = [
-  "ENVIRONMENT_SETUP",
-  "PLANNING_TRACKING",
-  "MEETING_CADENCE",
-  "REPORTING_CHECKLIST",
-  "PERIODIC_REPORTING",
-  "EXECUTION_ASSURANCE",
-] as const;
-
-export type GoalType = (typeof GOAL_TYPES)[number];
-
-export const GOAL_LABELS: Record<GoalType, string> = {
-  ENVIRONMENT_SETUP: "Environment Setup & Rules for R&I",
-  PLANNING_TRACKING: "Planning & Tracking",
-  MEETING_CADENCE: "Meeting Map & Cadence",
-  REPORTING_CHECKLIST: "Reporting Checklist",
-  PERIODIC_REPORTING: "Periodic Reporting",
-  EXECUTION_ASSURANCE: "Execution Assurance (RUN)",
+// The 6 goal tracks and their display labels live in config/goals.ts —
+// that's the file to edit to rename them for your organization. Re-export
+// here so every existing `@/lib/constants` import keeps working.
+import {
+  GOAL_TYPES,
+  GOAL_LABELS,
+  GOAL_SHORT_LABELS,
+  EXECUTIVE_APPROVAL_LEVEL,
+  EXECUTIVE_APPROVAL_LABEL,
+  EXECUTIVE_APPROVAL_DESCRIPTION,
+} from "@config/goals";
+export {
+  GOAL_TYPES,
+  GOAL_LABELS,
+  GOAL_SHORT_LABELS,
+  EXECUTIVE_APPROVAL_LEVEL,
+  EXECUTIVE_APPROVAL_LABEL,
+  EXECUTIVE_APPROVAL_DESCRIPTION,
 };
-
-export const GOAL_SHORT_LABELS: Record<GoalType, string> = {
-  ENVIRONMENT_SETUP: "Environment & Rules",
-  PLANNING_TRACKING: "Planning & Tracking",
-  MEETING_CADENCE: "Meetings & Cadence",
-  REPORTING_CHECKLIST: "Checklist",
-  PERIODIC_REPORTING: "Reporting",
-  EXECUTION_ASSURANCE: "Execution / Compliance",
-};
+export type { GoalType } from "@config/goals";
 
 export const GOAL_LEVELS = [0, 25, 50, 75, 100, 120] as const;
 export type GoalLevel = (typeof GOAL_LEVELS)[number];
@@ -241,13 +233,13 @@ export const CHECKLIST_VERIFICATION_DAYS = 14;
 // Monitoring — simple per-project checkboxes, never emailed.
 export const MONITORING_QUESTIONS = [
   "Is the project's Git repository up to date and accessible to all team members?",
-  "Is the CodeBeamer feature/project link current and reflecting the latest scope?",
+  "Is the requirements/backlog tracker link current and reflecting the latest scope?",
   "Has the Way of Working been reviewed by the team in the last quarter?",
   "Is the environment setup documentation still accurate for new joiners?",
   "Has onboarding been completed for all new team members this period?",
   "Is the current quarter's planning presentation published and linked?",
   "Are all recurring meetings (weekly, sprint review, retro) active and attended?",
   "Have all sprint goals for the current quarter been logged?",
-  "Are there any open deviations from the Business Innovation Process?",
+  `Are there any open deviations from the ${EXECUTIVE_APPROVAL_LABEL.toLowerCase()} process?`,
   "Has the mid/end-month report been generated for this period?",
 ] as const;

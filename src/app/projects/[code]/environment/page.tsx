@@ -1,7 +1,13 @@
 import { notFound } from "next/navigation";
+import { Save } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { updateProjectLinks } from "@/lib/actions";
-import { STRUCTURE_HIERARCHY_ITEMS } from "@/lib/constants";
+import {
+  STRUCTURE_HIERARCHY_ITEMS,
+  EXECUTIVE_APPROVAL_LEVEL,
+  EXECUTIVE_APPROVAL_LABEL,
+  EXECUTIVE_APPROVAL_DESCRIPTION,
+} from "@/lib/constants";
 import { GoalProgressForm } from "@/components/goal-progress-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ControlledInput } from "@/components/controlled-input";
@@ -14,7 +20,7 @@ import { Separator } from "@/components/ui/separator";
 
 const LINK_FIELDS: { key: keyof LinkFields; label: string }[] = [
   { key: "gitRepoUrl", label: "Git Repository URL" },
-  { key: "codebeamerUrl", label: "CodeBeamer Feature / Project link" },
+  { key: "codebeamerUrl", label: "Requirements / Backlog Tool link" },
   { key: "wowPresentationUrl", label: "Way of Working presentation" },
   { key: "envSetupDocUrl", label: "Environment Setup documentation" },
   { key: "onboardingGuideUrl", label: "Onboarding Guide" },
@@ -70,6 +76,7 @@ export default async function EnvironmentPage({
               </div>
             ))}
             <Button type="submit" size="sm">
+              <Save className="size-3.5" />
               Save Links
             </Button>
           </form>
@@ -112,13 +119,16 @@ export default async function EnvironmentPage({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">
-            120% — Full Alignment with Business Innovation Process
+            {EXECUTIVE_APPROVAL_LEVEL}% — {EXECUTIVE_APPROVAL_LABEL}
           </CardTitle>
           <Badge variant={allApproved ? "default" : "outline"}>
             {allApproved ? "Fully approved" : "Pending approval"}
           </Badge>
         </CardHeader>
         <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            {EXECUTIVE_APPROVAL_DESCRIPTION}.
+          </p>
           {project.managerApprovals.map((approval) => (
             <ManagerApprovalRow
               key={approval.id}

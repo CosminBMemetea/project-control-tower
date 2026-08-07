@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
+import { Plus, Trash2, ClipboardList } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { addQuarterPresentation, deleteQuarterPresentation } from "@/lib/actions";
 import { currentQuarter } from "@/lib/period";
 import { GoalProgressForm } from "@/components/goal-progress-form";
 import { SafeLink } from "@/components/safe-link";
 import { ActionForm } from "@/components/action-form";
+import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ControlledInput } from "@/components/controlled-input";
@@ -46,9 +48,7 @@ export default async function PlanningPage({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             {project.quarterPresentations.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No quarter presentations linked yet.
-              </p>
+              <EmptyState icon={ClipboardList} title="No quarter presentations linked yet" />
             )}
             {project.quarterPresentations.map((qp) => (
               <div
@@ -68,6 +68,7 @@ export default async function PlanningPage({
                   <input type="hidden" name="id" value={qp.id} />
                   <input type="hidden" name="code" value={project.code} />
                   <Button type="submit" size="sm" variant="ghost">
+                    <Trash2 className="size-3.5" />
                     Remove
                   </Button>
                 </form>
@@ -97,6 +98,7 @@ export default async function PlanningPage({
               <Input name="url" placeholder="https://..." />
             </div>
             <Button type="submit" size="sm">
+              <Plus className="size-3.5" />
               Add
             </Button>
           </ActionForm>

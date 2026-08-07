@@ -1,13 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Plus, Pencil, Trash2, FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { currentReportingPeriod, toDateInputValue } from "@/lib/period";
-import { GOAL_TYPES, GOAL_LABELS, REPORT_TYPES, REPORT_TYPE_LABELS } from "@/lib/constants";
+import {
+  GOAL_TYPES,
+  GOAL_LABELS,
+  REPORT_TYPES,
+  REPORT_TYPE_LABELS,
+  EXECUTIVE_APPROVAL_LEVEL,
+  EXECUTIVE_APPROVAL_LABEL,
+} from "@/lib/constants";
 import { reportLabel, isOffCadenceWeekly } from "@/lib/report-helpers";
 import { createReport, deleteReport } from "@/lib/actions";
 import { GoalProgressForm } from "@/components/goal-progress-form";
 import { ReportTypeBadge } from "@/components/report-type-badge";
 import { ActionForm } from "@/components/action-form";
+import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GoalBadge } from "@/components/goal-badge";
 import { Input } from "@/components/ui/input";
@@ -97,6 +106,7 @@ export default async function ReportingPage({
               <Input name="title" placeholder="e.g. Steering committee update" />
             </div>
             <Button type="submit" size="sm">
+              <Plus className="size-3.5" />
               Create &amp; Edit
             </Button>
           </ActionForm>
@@ -109,9 +119,11 @@ export default async function ReportingPage({
         </CardHeader>
         <CardContent>
           {project.reports.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No reports yet — create the first one above.
-            </p>
+            <EmptyState
+              icon={FileText}
+              title="No reports yet"
+              description="Create the first one above."
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -148,6 +160,7 @@ export default async function ReportingPage({
                       <div className="flex justify-end gap-1">
                         <Link href={`/projects/${project.code}/reporting/${r.id}`}>
                           <Button type="button" size="sm" variant="outline">
+                            <Pencil className="size-3.5" />
                             Edit
                           </Button>
                         </Link>
@@ -155,6 +168,7 @@ export default async function ReportingPage({
                           <input type="hidden" name="id" value={r.id} />
                           <input type="hidden" name="code" value={project.code} />
                           <Button type="submit" size="sm" variant="ghost">
+                            <Trash2 className="size-3.5" />
                             Delete
                           </Button>
                         </form>
@@ -210,7 +224,7 @@ export default async function ReportingPage({
 
           <div>
             <div className="font-medium mb-1">
-              120% Business Innovation Process approvals
+              {EXECUTIVE_APPROVAL_LEVEL}% {EXECUTIVE_APPROVAL_LABEL} approvals
             </div>
             <p className="text-muted-foreground">
               {approvalsDone}/{project.managerApprovals.length} managers approved

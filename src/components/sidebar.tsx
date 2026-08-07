@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { APP_CONFIG } from "@config/app";
 import { LayoutDashboard, FolderKanban, ShieldCheck, FileText } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -17,12 +18,29 @@ export function Sidebar() {
 
   return (
     <aside className="w-64 shrink-0 border-r bg-muted/30 flex flex-col h-full">
-      <div className="px-5 py-5 border-b">
-        <div className="font-semibold text-sm tracking-tight">
-          R&I Control Tower
-        </div>
-        <div className="text-xs text-muted-foreground mt-0.5">
-          Magna R&I Projects
+      <div className="px-5 py-5 border-b flex items-center gap-2.5">
+        {APP_CONFIG.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary external/deployment-provided logo, not a static import
+          <img
+            src={APP_CONFIG.logoUrl}
+            alt=""
+            className="size-8 rounded-md object-contain shrink-0"
+          />
+        ) : (
+          <div
+            aria-hidden
+            className="size-8 shrink-0 rounded-md bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold"
+          >
+            {APP_CONFIG.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="font-semibold text-sm tracking-tight truncate">
+            {APP_CONFIG.name}
+          </div>
+          <div className="text-xs text-muted-foreground mt-0.5 truncate">
+            {APP_CONFIG.shortDescription}
+          </div>
         </div>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1">

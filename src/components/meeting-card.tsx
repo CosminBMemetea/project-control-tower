@@ -1,3 +1,4 @@
+import { Plus, ExternalLink, CheckCircle2, Trash2 } from "lucide-react";
 import {
   upsertCoreMeeting,
   updateTeamsMeeting,
@@ -104,7 +105,7 @@ export function MeetingCard({
             <input type="hidden" name="type" value={type} />
             <ControlledInput
               name="url"
-              placeholder="Teams link"
+              placeholder="Meeting link"
               defaultValue=""
               className="h-8 text-xs"
             />
@@ -118,6 +119,7 @@ export function MeetingCard({
             </div>
             <RecurrenceFields />
             <Button type="submit" size="sm" className="w-full">
+              <Plus className="size-3.5" />
               Add meeting
             </Button>
           </ActionForm>
@@ -168,9 +170,10 @@ export function MeetingCard({
 
         <SafeLink
           href={meeting.url}
-          className="inline-flex w-full items-center justify-center rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent"
         >
-          Join in Teams
+          <ExternalLink className="size-3.5" />
+          Join meeting
         </SafeLink>
 
         <div>
@@ -190,6 +193,7 @@ export function MeetingCard({
             <input type="hidden" name="id" value={meeting.id} />
             <input type="hidden" name="code" value={code} />
             <Button type="submit" size="sm" variant="outline" className="w-full">
+              <CheckCircle2 className="size-3.5" />
               Mark occurred
             </Button>
           </form>
@@ -197,6 +201,7 @@ export function MeetingCard({
             <input type="hidden" name="id" value={meeting.id} />
             <input type="hidden" name="code" value={code} />
             <Button type="submit" size="sm" variant="ghost">
+              <Trash2 className="size-3.5" />
               Remove
             </Button>
           </form>

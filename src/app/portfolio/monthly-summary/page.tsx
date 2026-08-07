@@ -54,7 +54,7 @@ export default async function MonthlySummaryPage({
             Monthly Consolidated Summary
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            The 120% governance view — every project&apos;s end-month report,
+            The full governance view — every project&apos;s end-month report,
             in one place.
           </p>
         </div>

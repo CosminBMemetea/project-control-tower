@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { addTeamsMeeting } from "@/lib/actions";
 import {
@@ -60,7 +61,7 @@ export default async function MeetingsPage({
             <CardTitle className="text-base">Meeting Map</CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
               The full communication plan for this project — every recurring
-              meeting, its Teams link, schedule, and status, visible to
+              meeting, its link, schedule, and status, visible to
               stakeholders at a glance.
             </p>
           </div>
@@ -126,9 +127,9 @@ export default async function MeetingsPage({
             </div>
             <div className="grid gap-1.5 flex-1 min-w-48">
               <label className="text-xs text-muted-foreground">
-                Teams link
+                Meeting link
               </label>
-              <Input name="url" placeholder="https://teams.microsoft.com/..." />
+              <Input name="url" placeholder="https://..." />
             </div>
             <div className="grid gap-1.5">
               <label className="text-xs text-muted-foreground">Day</label>
@@ -156,6 +157,7 @@ export default async function MeetingsPage({
               <RecurrenceFields />
             </div>
             <Button type="submit" size="sm">
+              <Plus className="size-3.5" />
               Add
             </Button>
           </ActionForm>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Send, ExternalLink, Mail, ListChecks } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { sendChecklist } from "@/lib/actions";
 import { CHECKLIST_QUESTIONS, CHECKLIST_VERIFICATION_DAYS } from "@/lib/constants";
@@ -10,6 +11,7 @@ import { GoalProgressForm } from "@/components/goal-progress-form";
 import { ChecklistStatusBadge } from "@/components/checklist-status-badge";
 import { ActionForm } from "@/components/action-form";
 import { CopyLinkButton } from "@/components/copy-link-button";
+import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -89,6 +91,7 @@ export default async function ChecklistPage({
               />
             </div>
             <Button type="submit" size="sm">
+              <Send className="size-3.5" />
               Create Checklist
             </Button>
           </ActionForm>
@@ -126,9 +129,11 @@ export default async function ChecklistPage({
         </CardHeader>
         <CardContent>
           {project.checklistSubmissions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No checklist has been sent yet.
-            </p>
+            <EmptyState
+              icon={ListChecks}
+              title="No checklist has been sent yet"
+              description="Use the form above to create one and share the link."
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -165,8 +170,9 @@ export default async function ChecklistPage({
                           <Link
                             href={`/checklist-response/${sub.token}`}
                             target="_blank"
-                            className="text-xs text-primary underline px-2"
+                            className={buttonVariants({ variant: "ghost", size: "sm" })}
                           >
+                            <ExternalLink className="size-3.5" />
                             Open
                           </Link>
                           <CopyLinkButton link={link} />
@@ -174,6 +180,7 @@ export default async function ChecklistPage({
                             href={mailto}
                             className={buttonVariants({ variant: "ghost", size: "sm" })}
                           >
+                            <Mail className="size-3.5" />
                             Email
                           </a>
                         </div>

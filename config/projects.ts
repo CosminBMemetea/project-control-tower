@@ -7,40 +7,41 @@ export interface ProjectConfig {
 // Add or remove entries here to control which projects get created by
 // `prisma/seed.ts`. This is the single source of truth for the project
 // roster — do not hardcode project names/codes anywhere else.
+//
+// The list below is placeholder sample data — replace it with your own
+// projects before deploying. Existing rows are matched by `code` and never
+// deleted by the seed script, so renaming/removing an entry here won't
+// touch a project that's already in the database; delete it by hand
+// (or via the app) if you no longer want it.
 export const PROJECTS: ProjectConfig[] = [
   {
-    name: "ATHENA",
-    code: "ATHENA",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/athena/_git/athena",
+    name: "Sample Project Alpha",
+    code: "ALPHA",
+    gitRepoUrl: "https://github.com/example-org/project-alpha",
   },
   {
-    name: "Drive Assist LLM",
-    code: "DA-LLM",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/drive-assist-llm/_git/drive-assist-llm",
+    name: "Customer Portal Revamp",
+    code: "PORTAL",
+    gitRepoUrl: "https://github.com/example-org/customer-portal",
   },
   {
-    name: "Voxel Grid",
-    code: "VOXEL",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/voxel-grid/_git/voxel-grid",
+    name: "Mobile App Launch",
+    code: "MOBILE",
+    gitRepoUrl: "https://github.com/example-org/mobile-app",
   },
   {
-    name: "Radar Camera Fusion Parking",
-    code: "RCF-PARK",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/rcf-parking/_git/rcf-parking",
+    name: "Data Platform Migration",
+    code: "DATA-MIG",
+    gitRepoUrl: "https://github.com/example-org/data-platform",
   },
   {
-    name: "Live Range Assessor",
-    code: "LRA",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/live-range-assessor/_git/live-range-assessor",
+    name: "API Gateway Upgrade",
+    code: "API-GW",
+    gitRepoUrl: "https://github.com/example-org/api-gateway",
   },
   {
-    name: "USS Replacement",
-    code: "USS-REPL",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/uss-replacement/_git/uss-replacement",
-  },
-  {
-    name: "Gating Imaging",
-    code: "GATING-IMG",
-    gitRepoUrl: "https://dev.azure.com/magna-ri/gating-imaging/_git/gating-imaging",
+    name: "Internal Tools Revamp",
+    code: "INT-TOOLS",
+    gitRepoUrl: "https://github.com/example-org/internal-tools",
   },
 ];

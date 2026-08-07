@@ -210,7 +210,7 @@ export async function addTeamsMeeting(
   const url = str(formData, "url");
   const dayOfWeek = str(formData, "dayOfWeek");
   const time = str(formData, "time");
-  if (!type || !url) return { error: "A Teams link is required." };
+  if (!type || !url) return { error: "A meeting link is required." };
 
   await prisma.teamsMeeting.create({
     data: {
@@ -239,7 +239,7 @@ export async function upsertCoreMeeting(
   const url = str(formData, "url");
   const dayOfWeek = str(formData, "dayOfWeek");
   const time = str(formData, "time");
-  if (!type || !url) return { error: "A Teams link is required." };
+  if (!type || !url) return { error: "A meeting link is required." };
 
   const existing = await prisma.teamsMeeting.findFirst({
     where: { projectId, type },
@@ -273,7 +273,7 @@ export async function updateTeamsMeeting(
   const url = str(formData, "url");
   const dayOfWeek = str(formData, "dayOfWeek");
   const time = str(formData, "time");
-  if (!url) return { error: "A Teams link is required." };
+  if (!url) return { error: "A meeting link is required." };
 
   await prisma.teamsMeeting.update({
     where: { id },

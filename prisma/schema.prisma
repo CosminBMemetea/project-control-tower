@@ -1,6 +1,6 @@
-// R&I Control Tower — Prisma schema
-// Draft schema matching the proposed data model. Replace with the
-// user-provided schema when available.
+// Project portfolio governance & reporting — Prisma schema.
+// Configure branding in config/app.ts and goal track names in
+// config/goals.ts; this schema itself is deployment-agnostic.
 
 generator client {
   provider = "prisma-client"
@@ -20,7 +20,7 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Environment Setup & Rules for R&I
+  // Environment Setup & Rules
   gitRepoUrl         String?
   codebeamerUrl       String?
   wowPresentationUrl String?
@@ -107,7 +107,7 @@ model TeamsMeeting {
   lastOccurredAt DateTime?
 }
 
-// 120% Business Innovation Process approval
+// Executive Approval (the "120%" stretch tier) — see config/goals.ts
 model ManagerApproval {
   id String @id @default(cuid())
 
@@ -278,7 +278,7 @@ model Risk {
   updatedAt DateTime @updatedAt
 }
 
-// Execution Assurance (RUN): compliance checks + deviations
+// Execution Assurance: compliance checks + deviations
 model ComplianceCheck {
   id String @id @default(cuid())
 

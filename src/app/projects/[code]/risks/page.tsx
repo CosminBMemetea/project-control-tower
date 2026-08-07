@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Plus, Save, Trash2, ShieldAlert } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { addRisk, deleteRisk, updateRisk } from "@/lib/actions";
 import {
@@ -12,6 +13,7 @@ import {
 import { RiskLevelBadge } from "@/components/risk-level-badge";
 import { ActionForm } from "@/components/action-form";
 import { ControlledInput } from "@/components/controlled-input";
+import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -75,9 +77,11 @@ export default async function RisksPage({
         </CardHeader>
         <CardContent className="space-y-4">
           {project.risks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No risks logged yet.
-            </p>
+            <EmptyState
+              icon={ShieldAlert}
+              title="No risks logged yet"
+              description="Use the form below to log the first risk for this project."
+            />
           ) : (
             <div className="space-y-4">
               {project.risks.map((risk) => (
@@ -195,6 +199,7 @@ export default async function RisksPage({
                     </div>
                     <div className="sm:col-span-2 flex items-center gap-2">
                       <Button type="submit" size="sm">
+                        <Save className="size-3.5" />
                         Save
                       </Button>
                     </div>
@@ -209,6 +214,7 @@ export default async function RisksPage({
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
                     >
+                      <Trash2 className="size-3.5" />
                       Delete
                     </Button>
                   </form>
@@ -280,6 +286,7 @@ export default async function RisksPage({
               <Textarea name="mitigationPlan" placeholder="Optional" />
             </div>
             <Button type="submit" size="sm">
+              <Plus className="size-3.5" />
               Add Risk
             </Button>
           </ActionForm>
