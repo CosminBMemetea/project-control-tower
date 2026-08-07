@@ -15,6 +15,9 @@ import {
   HEALTH_DIMENSIONS,
   HEALTH_SCORES,
   HEALTH_DEFAULT_SCORE,
+  GOAL_TYPES,
+  GOAL_LEVELS,
+  REPORT_TYPES,
   type GoalType,
   type RagStatus,
   type RiskLevel,
@@ -35,6 +38,7 @@ export type ActionResult = { error: string } | { info: string } | void;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const QUARTER_RE = /^\d{4}-Q[1-4]$/;
 
 function isRiskLevel(v: string): v is RiskLevel {
   return (RISK_LEVELS as readonly string[]).includes(v);
@@ -152,10 +156,15 @@ export async function setGoalLevel(
   goalType: GoalType,
   level: number
 ) {
+  // Same RPC-hardening reasoning as setHealthScore: an invalid goalType is
+  // a no-op (no safe substitute goal to fall back to), but an out-of-range
+  // level falls back to 0 since it's the same field being set either way.
+  if (!(GOAL_TYPES as readonly string[]).includes(goalType)) return;
+  const safeLevel = (GOAL_LEVELS as readonly number[]).includes(level) ? level : 0;
   await prisma.goalProgress.upsert({
     where: { projectId_goalType: { projectId, goalType } },
-    update: { level },
-    create: { projectId, goalType, level },
+    update: { level: safeLevel },
+    create: { projectId, goalType, level: safeLevel },
   });
   revalidateProject(code);
 }
@@ -167,6 +176,7 @@ export async function setGoalEvidenceUrl(formData: FormData) {
   const code = str(formData, "code");
   const goalType = str(formData, "goalType") as GoalType;
   const evidenceUrl = str(formData, "evidenceUrl");
+  if (!(GOAL_TYPES as readonly string[]).includes(goalType)) return;
 
   await prisma.goalProgress.upsert({
     where: { projectId_goalType: { projectId, goalType } },
@@ -181,9 +191,16 @@ export async function addQuarterPresentation(
 ): Promise<ActionResult> {
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
-  const quarter = str(formData, "quarter");
+  // Uppercased so "2026-q1" and "2026-Q1" land on the same row instead of
+  // silently creating a duplicate that never matches currentQuarter()'s
+  // exact casing (which would show as "missing" on the Portfolio Overview
+  // even though a presentation is actually on file).
+  const quarter = str(formData, "quarter").toUpperCase();
   const url = str(formData, "url");
   if (!quarter || !url) return { error: "Quarter and URL are both required." };
+  if (!QUARTER_RE.test(quarter)) {
+    return { error: "Quarter must look like 2026-Q1." };
+  }
 
   await prisma.quarterPresentation.upsert({
     where: { projectId_quarter: { projectId, quarter } },
@@ -437,6 +454,12 @@ export async function createReport(
   const title = str(formData, "title");
   if (!type || !reportDateStr)
     return { error: "Type and date are both required." };
+  if (!(REPORT_TYPES as readonly string[]).includes(type)) {
+    return { error: "Invalid report type." };
+  }
+  if (!DATE_RE.test(reportDateStr)) {
+    return { error: "Report date must be a valid date." };
+  }
 
   const report = await prisma.report.create({
     data: {
@@ -460,6 +483,12 @@ export async function updateReportMeta(
   const title = str(formData, "title");
   if (!type || !reportDateStr)
     return { error: "Type and date are both required." };
+  if (!(REPORT_TYPES as readonly string[]).includes(type)) {
+    return { error: "Invalid report type." };
+  }
+  if (!DATE_RE.test(reportDateStr)) {
+    return { error: "Report date must be a valid date." };
+  }
 
   await prisma.report.update({
     where: { id },
