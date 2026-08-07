@@ -40,11 +40,19 @@ export default async function RisksPage({
   const project = await prisma.project.findUnique({
     where: { code },
     include: {
-      risks: { orderBy: [{ status: "asc" }, { identifiedAt: "desc" }] },
+      risks: { orderBy: { identifiedAt: "desc" } },
     },
   });
 
   if (!project) notFound();
+
+  // `status` sorts alphabetically in the DB (CLOSED, MITIGATING, OPEN),
+  // which would bury the actionable risks below resolved ones — reorder
+  // so Open/Mitigating always lead and Closed sinks to the bottom.
+  const STATUS_ORDER: Record<string, number> = { OPEN: 0, MITIGATING: 1, CLOSED: 2 };
+  project.risks.sort(
+    (a, b) => (STATUS_ORDER[a.status] ?? 0) - (STATUS_ORDER[b.status] ?? 0)
+  );
 
   const openRisks = project.risks.filter((r) => r.status !== "CLOSED");
   const highSeverity = openRisks.filter(isHighSeverity);

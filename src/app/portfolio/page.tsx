@@ -188,6 +188,7 @@ export default async function PortfolioPage() {
                           projectId={project.id}
                           code={project.code}
                           status={project.ragStatus}
+                          comment={project.ragComment}
                           compact
                         />
                       </TableCell>

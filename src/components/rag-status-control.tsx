@@ -44,7 +44,7 @@ export function RagStatusControl({
     <div
       className={compact ? "flex items-center gap-1.5" : "flex flex-col gap-2"}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" title={comment || undefined}>
         <RagBadge status={status} size={size} />
         <select
           aria-label="RAG status"
