@@ -156,6 +156,59 @@ export function isHighSeverity(risk: { impact: string; probability: string }) {
   return risk.impact === "HIGH" && risk.probability === "HIGH";
 }
 
+// Project Health Spider Web — 6 dimensions, each scored 1-5.
+export const HEALTH_DIMENSIONS = [
+  "SCOPE",
+  "SCHEDULE",
+  "COST",
+  "RISK",
+  "QUALITY",
+  "RESOURCES",
+] as const;
+export type HealthDimension = (typeof HEALTH_DIMENSIONS)[number];
+
+export const HEALTH_DIMENSION_LABELS: Record<HealthDimension, string> = {
+  SCOPE: "Scope",
+  SCHEDULE: "Schedule",
+  COST: "Cost",
+  RISK: "Risk",
+  QUALITY: "Quality",
+  RESOURCES: "Resources",
+};
+
+export const HEALTH_SCORES = [1, 2, 3, 4, 5] as const;
+export type HealthScore = (typeof HEALTH_SCORES)[number];
+export const HEALTH_SCORE_MIN = 1;
+export const HEALTH_SCORE_MAX = 5;
+export const HEALTH_DEFAULT_SCORE: HealthScore = 3;
+
+export const HEALTH_SCORE_LABELS: Record<HealthScore, string> = {
+  1: "Critical",
+  2: "Weak",
+  3: "Adequate",
+  4: "Good",
+  5: "Excellent",
+};
+
+// A dimension at or below this is flagged as a weak spot, portfolio-wide.
+export const HEALTH_WEAK_THRESHOLD = 2;
+
+// Three-tier read on an average score, reusing the same red/amber/green
+// vocabulary as RAG status for a consistent "at a glance" language.
+export type HealthTier = "GOOD" | "WATCH" | "CRITICAL";
+
+export const HEALTH_TIER_COLORS: Record<HealthTier, string> = {
+  GOOD: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  WATCH: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  CRITICAL: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+};
+
+export function healthTier(average: number): HealthTier {
+  if (average >= 4) return "GOOD";
+  if (average >= 2.5) return "WATCH";
+  return "CRITICAL";
+}
+
 export const STRUCTURE_HIERARCHY_ITEMS = [
   { field: "epicsPlanned", label: "Epics per year planned" },
   { field: "userStoriesPlanned", label: "User Stories per quarter planned" },

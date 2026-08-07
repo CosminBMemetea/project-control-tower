@@ -1,7 +1,13 @@
 import "dotenv/config";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { CHECKLIST_QUESTIONS, MONITORING_QUESTIONS, GOAL_TYPES } from "../src/lib/constants";
+import {
+  CHECKLIST_QUESTIONS,
+  MONITORING_QUESTIONS,
+  GOAL_TYPES,
+  HEALTH_DIMENSIONS,
+  HEALTH_DEFAULT_SCORE,
+} from "../src/lib/constants";
 import { PROJECTS } from "../config/projects";
 import { APPROVERS } from "../config/approvers";
 
@@ -65,6 +71,14 @@ async function main() {
         where: { projectId_goalType: { projectId: project.id, goalType } },
         update: {},
         create: { projectId: project.id, goalType, level: 0 },
+      });
+    }
+
+    for (const dimension of HEALTH_DIMENSIONS) {
+      await prisma.projectHealth.upsert({
+        where: { projectId_dimension: { projectId: project.id, dimension } },
+        update: {},
+        create: { projectId: project.id, dimension, score: HEALTH_DEFAULT_SCORE },
       });
     }
 

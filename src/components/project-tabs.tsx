@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { slug: "environment", label: "Environment & Rules" },
+  { slug: "health", label: "Health" },
   { slug: "planning", label: "Planning & Tracking" },
   { slug: "meetings", label: "Meetings & Cadence" },
   { slug: "risks", label: "Risk Register" },

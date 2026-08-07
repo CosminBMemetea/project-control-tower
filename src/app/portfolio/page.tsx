@@ -8,14 +8,21 @@ import {
   CORE_MEETING_TYPES,
   MEETING_TYPE_LABELS,
   isHighSeverity,
+  healthTier,
+  HEALTH_TIER_COLORS,
+  HEALTH_DIMENSION_LABELS,
+  HEALTH_WEAK_THRESHOLD,
 } from "@/lib/constants";
 import { currentQuarter } from "@/lib/period";
 import { computeMeetingStatus } from "@/lib/meeting-status";
 import { computeChecklistStatus } from "@/lib/checklist-status";
+import { computeHealthStats } from "@/lib/health";
 import { GoalBadge } from "@/components/goal-badge";
 import { GoalLevelSelect } from "@/components/goal-level-select";
 import { RagStatusControl } from "@/components/rag-status-control";
 import { FteInput } from "@/components/fte-input";
+import { RadarChart } from "@/components/radar-chart";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -37,6 +44,7 @@ export default async function PortfolioPage() {
       managerApprovals: true,
       checklistSubmissions: true,
       risks: true,
+      healthScores: true,
     },
     orderBy: { name: "asc" },
   });
@@ -91,6 +99,17 @@ export default async function PortfolioPage() {
           .join(", ")}`
       );
     }
+    const healthStats = computeHealthStats(p.healthScores);
+    const weakDimensions = Object.entries(healthStats.values).filter(
+      ([, v]) => v <= HEALTH_WEAK_THRESHOLD
+    );
+    if (weakDimensions.length > 0) {
+      issues.push(
+        `Weak health score(s): ${weakDimensions
+          .map(([d, v]) => `${HEALTH_DIMENSION_LABELS[d as keyof typeof HEALTH_DIMENSION_LABELS]} (${v})`)
+          .join(", ")}`
+      );
+    }
     return issues.map((issue) => ({ project: p, issue }));
   });
 
@@ -107,6 +126,10 @@ export default async function PortfolioPage() {
     })
     .filter((r) => r.open > 0)
     .sort((a, b) => b.highSeverity - a.highSeverity || b.open - a.open);
+
+  const healthSummary = projects
+    .map((p) => ({ project: p, stats: computeHealthStats(p.healthScores) }))
+    .sort((a, b) => a.stats.average - b.stats.average); // most out of shape first
 
   return (
     <div className="space-y-8">
@@ -235,6 +258,86 @@ export default async function PortfolioPage() {
                   <TableCell />
                 </TableRow>
               </TableFooter>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Project Health</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Scope · Schedule · Cost · Risk · Quality · Resources, 1-5 each. A
+            lopsided or small shape means a project is out of shape — weak or
+            unbalanced on one or more dimensions. Sorted worst average first.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Project</TableHead>
+                  <TableHead className="text-center">Shape</TableHead>
+                  <TableHead className="text-center">Average</TableHead>
+                  <TableHead>Weakest Dimension</TableHead>
+                  <TableHead className="text-center">Flag</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {healthSummary.map(({ project, stats }) => {
+                  const tier = healthTier(stats.average);
+                  const unbalanced = stats.spread >= 3;
+                  return (
+                    <TableRow key={project.id}>
+                      <TableCell className="font-medium whitespace-nowrap">
+                        <Link
+                          href={`/projects/${project.code}/health`}
+                          className="hover:underline"
+                        >
+                          {project.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <RadarChart
+                          scores={stats.values}
+                          size={48}
+                          compact
+                          className="inline-block"
+                        />
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold tabular-nums",
+                            HEALTH_TIER_COLORS[tier]
+                          )}
+                        >
+                          {stats.average.toFixed(1)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {stats.spread === 0 ? (
+                          <span className="text-muted-foreground">
+                            Balanced ({stats.min})
+                          </span>
+                        ) : (
+                          `${HEALTH_DIMENSION_LABELS[stats.minDimension]} (${stats.min})`
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {unbalanced ? (
+                          <Badge variant="destructive">Unbalanced</Badge>
+                        ) : tier === "CRITICAL" ? (
+                          <Badge variant="destructive">Weak</Badge>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
             </Table>
           </div>
         </CardContent>

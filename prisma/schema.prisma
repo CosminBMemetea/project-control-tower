@@ -50,6 +50,26 @@ model Project {
   reports              Report[]
   monitoringResponses  MonitoringResponse[]
   risks                Risk[]
+  healthScores         ProjectHealth[]
+}
+
+// Project Health Spider Web — one score (1-5) + optional comment per
+// dimension (Scope/Schedule/Cost/Risk/Quality/Resources), rendered as a
+// radar chart. Seeded to a neutral 3 for every project so the chart is
+// never an empty/degenerate shape before anyone has scored it.
+model ProjectHealth {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  dimension String // SCOPE | SCHEDULE | COST | RISK | QUALITY | RESOURCES
+  score     Int    @default(3) // 1-5, 1 = Critical, 5 = Excellent
+  comment   String?
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, dimension])
 }
 
 // Planning & Tracking: one row per quarter presentation link

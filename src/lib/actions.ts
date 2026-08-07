@@ -12,10 +12,14 @@ import {
   RAG_STATUSES,
   RISK_LEVELS,
   RISK_STATUSES,
+  HEALTH_DIMENSIONS,
+  HEALTH_SCORES,
+  HEALTH_DEFAULT_SCORE,
   type GoalType,
   type RagStatus,
   type RiskLevel,
   type RiskStatus,
+  type HealthDimension,
 } from "@/lib/constants";
 
 function str(formData: FormData, key: string): string {
@@ -37,6 +41,9 @@ function isRiskLevel(v: string): v is RiskLevel {
 }
 function isRiskStatus(v: string): v is RiskStatus {
   return (RISK_STATUSES as readonly string[]).includes(v);
+}
+function isHealthDimension(v: string): v is HealthDimension {
+  return (HEALTH_DIMENSIONS as readonly string[]).includes(v);
 }
 
 function revalidateGlobal() {
@@ -736,6 +743,47 @@ export async function deleteRisk(formData: FormData) {
   const id = str(formData, "id");
   const code = str(formData, "code");
   await prisma.risk.delete({ where: { id } });
+  revalidateProject(code);
+}
+
+// --- Project Health Spider Web ---
+
+// Auto-saved the moment the dropdown changes — independent of the
+// comment save below, same reasoning as setRagStatus. Clamped/validated
+// server-side since this is a direct RPC call, not a validated form. An
+// invalid dimension is a no-op rather than falling back to a default one
+// — unlike an out-of-range score, there's no safe substitute dimension
+// that wouldn't mean silently overwriting a *different*, real score.
+export async function setHealthScore(
+  projectId: string,
+  code: string,
+  dimension: HealthDimension,
+  score: number
+) {
+  if (!isHealthDimension(dimension)) return;
+  const safeScore = (HEALTH_SCORES as readonly number[]).includes(score)
+    ? score
+    : HEALTH_DEFAULT_SCORE;
+  await prisma.projectHealth.upsert({
+    where: { projectId_dimension: { projectId, dimension } },
+    update: { score: safeScore },
+    create: { projectId, dimension, score: safeScore },
+  });
+  revalidateProject(code);
+}
+
+export async function setHealthComment(formData: FormData): Promise<ActionResult> {
+  const projectId = str(formData, "projectId");
+  const code = str(formData, "code");
+  const dimension = str(formData, "dimension");
+  const comment = str(formData, "comment");
+  if (!isHealthDimension(dimension)) return { error: "Invalid health dimension." };
+
+  await prisma.projectHealth.upsert({
+    where: { projectId_dimension: { projectId, dimension } },
+    update: { comment: comment || null },
+    create: { projectId, dimension, score: HEALTH_DEFAULT_SCORE, comment: comment || null },
+  });
   revalidateProject(code);
 }
 
