@@ -21,13 +21,13 @@ function getTransporter() {
   });
 }
 
-// Prefers an explicitly configured APP_BASE_URL (needed once this is
-// deployed somewhere with a domain), but falls back to the host that
+// Prefers an explicitly configured NEXT_PUBLIC_APP_URL (needed once this
+// is deployed somewhere with a domain), but falls back to the host that
 // actually served the current request — so links are correct out of the
 // box in local dev without any setup, on whatever port it happens to run.
 export async function getAppBaseUrl(): Promise<string> {
-  if (process.env.APP_BASE_URL) {
-    return process.env.APP_BASE_URL.replace(/\/$/, "");
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   }
   try {
     const h = await headers();

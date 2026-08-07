@@ -35,13 +35,15 @@ below.
 - **Monitoring** — a simpler, non-emailed set of governance checkboxes per
   project.
 - **Approvals** — a configurable executive/manager sign-off step per project.
+- **Settings** — app info at a glance, one-click full data export, and
+  password-protection status.
 
 ## Quick start (local development)
 
 Requires Node.js 20+.
 
 ```bash
-npm install                # also runs `prisma generate` automatically
+npm install                # also runs `prisma generate`
 cp .env.example .env       # DATABASE_URL is the only thing you truly need
 npm run db:setup           # runs migrations, then seeds sample data
 npm run dev
@@ -50,7 +52,9 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000).
 
 The app uses SQLite by default (`dev.db`, created automatically) — there's
-nothing else to install or provision to try it out.
+nothing else to install or provision to try it out. It's wide open by
+default (no login) — see [Simple password protection](#simple-password-protection)
+to lock it down.
 
 ### Useful scripts
 
@@ -63,6 +67,26 @@ nothing else to install or provision to try it out.
 | `npm run db:migrate` | Apply Prisma migrations (interactive, dev) |
 | `npm run db:seed` | Re-run the seed script (safe to re-run — upserts) |
 | `npm run db:setup` | Migrate + seed in one step |
+
+## Environment variables
+
+All configuration lives in `.env` (copy `.env.example` to get started — it
+documents every variable). Nothing except `DATABASE_URL` is required.
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `DATABASE_URL` | Yes | SQLite connection string, e.g. `file:./dev.db` |
+| `APP_NAME` | No | Overrides the app name shown in the sidebar, browser tab, and outgoing emails |
+| `APP_DESCRIPTION` | No | Overrides the short tagline under the app name |
+| `APP_PRIMARY_COLOR` | No | Hex color, e.g. `#2563eb`, to theme the app's accent color |
+| `APP_LOGO_URL` | No | Path or URL to a logo image shown in the sidebar |
+| `NEXT_PUBLIC_APP_URL` | No | Absolute base URL, used to build links in Reporting Checklist emails; auto-detected from the request in dev |
+| `APP_PASSWORD` | No | Shared password gating the whole app; leave unset to keep it open |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | No | Lets the app send Reporting Checklist emails itself instead of relying on Copy Link / mailto |
+
+Since these are all plain (non-`NEXT_PUBLIC_`) env vars read only on the
+server, none of them — including a configured `APP_PASSWORD` — ever ship to
+the browser bundle.
 
 ## Branding & customization
 
@@ -86,10 +110,10 @@ Or override any of these per-deployment without touching source, via env
 vars (see `.env.example`):
 
 ```
-NEXT_PUBLIC_APP_NAME="Acme Program Office"
-NEXT_PUBLIC_APP_DESCRIPTION="Acme's project governance hub"
-NEXT_PUBLIC_APP_PRIMARY_COLOR="#7c3aed"
-NEXT_PUBLIC_APP_LOGO_URL="/logo.svg"
+APP_NAME="Acme Program Office"
+APP_DESCRIPTION="Acme's project governance hub"
+APP_PRIMARY_COLOR="#7c3aed"
+APP_LOGO_URL="/logo.svg"
 ```
 
 If no `logoUrl` is set, the sidebar shows a generated badge using the app
@@ -113,12 +137,42 @@ identifiers stored in the database.
 - **`config/approvers.ts`** — the list of approvers required to sign off on
   the Executive Approval tier for every project.
 
-After editing either file, run `npm run db:seed` to apply the changes.
+After editing either file, run `npm run db:seed` to apply the changes (see
+[Load Projects](#load-projects) below).
 
 ## Database
 
 SQLite via Prisma, with a custom `better-sqlite3` driver adapter. The
-schema lives in `prisma/schema.prisma`. To change it:
+schema lives in `prisma/schema.prisma`.
+
+### Load Projects
+
+Adding, renaming, or removing entries in `config/projects.ts` or
+`config/approvers.ts` doesn't touch the database by itself — run the seed
+script to apply the change:
+
+```bash
+npm run db:seed
+```
+
+This is safe to re-run any time: existing projects (matched by `code`) are
+updated in place, new entries are created, and nothing already in the
+database is ever deleted by the seed script.
+
+### Reset Database
+
+To wipe the database back to a clean slate (drops all data, re-applies
+every migration, then re-seeds from `config/projects.ts` /
+`config/approvers.ts`):
+
+```bash
+npx prisma migrate reset
+```
+
+This is destructive and cannot be undone — use
+[Export data](#export-data) first if you want a backup of what's there.
+
+### Changing the schema
 
 ```bash
 # edit prisma/schema.prisma, then:
@@ -131,6 +185,43 @@ existing migrations non-interactively; doesn't create new ones).
 Swapping to Postgres/MySQL later just means changing `datasource.provider`
 in `schema.prisma`, updating `DATABASE_URL`, and swapping the driver
 adapter in `src/lib/prisma.ts`.
+
+## Export data
+
+**Settings → Export data** (`/settings`) downloads a single JSON file with
+every project and all of its related data — reports, risks, goal progress,
+meetings, checklist submissions and answers, compliance checks, health
+scores, and more — plus the shared checklist/monitoring question sets and
+the report template.
+
+Use this before resetting the database ([above](#reset-database)) or before
+moving to a new environment, so nothing is lost. The same data is also
+reachable directly at `GET /api/export`, which is covered by password
+protection like the rest of the app if `APP_PASSWORD` is set.
+
+## Simple password protection
+
+Set `APP_PASSWORD` in `.env` to require a password before anyone can open
+the app:
+
+```
+APP_PASSWORD="choose-a-demo-password"
+```
+
+- Leave it unset (or empty) and the app stays fully open — this is the
+  default, so nothing changes until you opt in.
+- When set, every route requires the password, entered once at `/login`;
+  a browser cookie keeps you signed in after that (30 days). Use **Log
+  out** at the bottom of the sidebar to end the session.
+- The one exception is the Reporting Checklist response link
+  (`/checklist-response/[token]`) — it's meant for external recipients who
+  don't have the app password, and stays protected by its own unguessable
+  token instead.
+
+This is intentionally simple: one shared password, no user accounts, no
+roles. It's meant to keep an internal demo from being wide open on a public
+URL — not a substitute for real authentication if you need per-user access
+control, put the app behind your own SSO/VPN instead.
 
 ## Optional: sending email
 
@@ -147,19 +238,33 @@ npm run build
 npm run start
 ```
 
-For a fixed production domain, set `APP_BASE_URL` in `.env` so links sent
-by email resolve correctly regardless of proxy/load-balancer headers (in
-dev, and on most standard deployments, this is auto-detected and you don't
-need to set it — see the comment in `.env.example`).
+For a fixed production domain, set `NEXT_PUBLIC_APP_URL` in `.env` so links
+sent by email resolve correctly regardless of proxy/load-balancer headers
+(in dev, and on most standard deployments, this is auto-detected and you
+don't need to set it — see the comment in `.env.example`).
 
-There's no built-in authentication — every route is reachable by anyone who
-can reach the server, and the Reporting Checklist response link
-(`/checklist-response/[token]`) is intentionally public (token-secured, no
-login) so external recipients can respond without an account. Put this
-behind your own network/VPN/SSO boundary if that matters for your
-deployment.
+Set `APP_PASSWORD` too if this is going somewhere reachable by anyone other
+than your team — see [Simple password protection](#simple-password-protection).
+
+### Vercel
+
+Works out of the box — connect the repo, set the environment variables from
+`.env.example` you actually need (typically none beyond the defaults for a
+quick demo), and deploy. SQLite's `dev.db` file is fine for a demo, but
+isn't persistent across deploys/serverless instances on Vercel; for
+anything beyond a throwaway demo, point `DATABASE_URL` at a hosted Postgres
+database instead (see [Changing the schema](#changing-the-schema) for how
+to swap providers) and run `npx prisma migrate deploy` once against it.
+
+### Railway
+
+Add a persistent volume if staying on SQLite (mount it and point
+`DATABASE_URL` at a path inside it), or provision Railway's Postgres addon
+and swap the Prisma datasource provider as above. Set the same environment
+variables from `.env.example`, then run `npm run build && npm run start`
+(or `npx prisma migrate deploy` as a release step) as the start command.
 
 ## Tech stack
 
-Next.js 16 (App Router, Server Actions) · TypeScript · Tailwind CSS ·
+Next.js 16 (App Router, Server Functions, Proxy) · TypeScript · Tailwind CSS ·
 shadcn/ui (Base UI) · Prisma 7 · SQLite · Lucide icons.

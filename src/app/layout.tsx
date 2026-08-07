@@ -63,7 +63,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full h-full flex">
         {primaryOverrideCss && <style>{primaryOverrideCss}</style>}
-        <AppShell>{children}</AppShell>
+        <AppShell
+          appConfig={APP_CONFIG}
+          passwordProtected={Boolean(process.env.APP_PASSWORD)}
+        >
+          {children}
+        </AppShell>
         <Toaster />
       </body>
     </html>

@@ -1,11 +1,13 @@
 // Central branding config — the only place app name/description/color/logo
 // should be set. Edit the fallback values below directly, or override any
-// of them per-deployment with the matching NEXT_PUBLIC_ env var (useful
-// when you don't want to touch source, e.g. Docker/Vercel deploys).
+// of them per-deployment with the matching env var (useful when you don't
+// want to touch source, e.g. Docker/Vercel deploys) — see .env.example.
 //
-// These are read by both server and client components (the sidebar needs
-// the name too), so every field must be safe to ship to the browser —
-// don't put secrets here.
+// This module is only ever imported by server components (the branding
+// values are threaded down to client components like the sidebar via
+// props from the root layout), so these can be plain env vars — no
+// NEXT_PUBLIC_ prefix, and no need to worry about what ships to the
+// browser bundle.
 
 export interface AppConfig {
   name: string;
@@ -17,9 +19,9 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG: AppConfig = {
-  name: process.env.NEXT_PUBLIC_APP_NAME || "Project Control Tower",
+  name: process.env.APP_NAME || "Project Control Tower",
   shortDescription:
-    process.env.NEXT_PUBLIC_APP_DESCRIPTION || "Portfolio governance & reporting",
-  primaryColor: process.env.NEXT_PUBLIC_APP_PRIMARY_COLOR || undefined,
-  logoUrl: process.env.NEXT_PUBLIC_APP_LOGO_URL || undefined,
+    process.env.APP_DESCRIPTION || "Portfolio governance & reporting",
+  primaryColor: process.env.APP_PRIMARY_COLOR || undefined,
+  logoUrl: process.env.APP_LOGO_URL || undefined,
 };
