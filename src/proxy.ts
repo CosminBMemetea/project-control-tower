@@ -12,6 +12,17 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Server Action requests carry this header. Redirecting one here (an
+  // HTTP 307 in response to what the client expects to be an action
+  // result) breaks the Server Actions protocol client-side and crashes
+  // the page ("An unexpected response was received from the server")
+  // instead of failing cleanly. Let these through — every mutating
+  // action checks its own auth via requireAuth() (src/lib/require-auth.ts),
+  // which bails out with a proper in-action redirect() instead.
+  if (request.headers.has("next-action")) {
+    return NextResponse.next();
+  }
+
   const cookie = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   if (isValidAuthCookie(cookie)) {
     return NextResponse.next();

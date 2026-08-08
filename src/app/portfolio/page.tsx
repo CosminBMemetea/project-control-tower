@@ -20,9 +20,7 @@ import { computeMeetingStatus } from "@/lib/meeting-status";
 import { computeChecklistStatus } from "@/lib/checklist-status";
 import { computeHealthStats } from "@/lib/health";
 import { GoalBadge } from "@/components/goal-badge";
-import { GoalLevelSelect } from "@/components/goal-level-select";
-import { RagStatusControl } from "@/components/rag-status-control";
-import { FteInput } from "@/components/fte-input";
+import { RagBadge } from "@/components/rag-badge";
 import { RadarChart } from "@/components/radar-chart";
 import { StatCard } from "@/components/stat-card";
 import { cn } from "@/lib/utils";
@@ -196,8 +194,8 @@ export default async function PortfolioPage() {
             Projects vs. Goal Coverage
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Each level is set directly — pick it from the dropdown under any
-            badge to update it, here or on the project&apos;s tab.
+            Read-only summary — edit RAG status, FTE, and goal levels from
+            each project&apos;s own tab.
           </p>
         </CardHeader>
         <CardContent>
@@ -247,31 +245,14 @@ export default async function PortfolioPage() {
                         </Link>
                       </TableCell>
                       <TableCell className="text-center">
-                        <RagStatusControl
-                          projectId={project.id}
-                          code={project.code}
-                          status={project.ragStatus}
-                          comment={project.ragComment}
-                          compact
-                        />
+                        <RagBadge status={project.ragStatus} />
                       </TableCell>
-                      <TableCell className="text-center">
-                        <FteInput
-                          projectId={project.id}
-                          code={project.code}
-                          value={project.allocatedFte}
-                          compact
-                        />
+                      <TableCell className="text-center font-medium tabular-nums">
+                        {project.allocatedFte}
                       </TableCell>
                       {GOAL_TYPES.map((g, i) => (
                         <TableCell key={g} className="text-center">
-                          <GoalLevelSelect
-                            projectId={project.id}
-                            code={project.code}
-                            goalType={g}
-                            level={levels[i]}
-                            layout="stacked"
-                          />
+                          <GoalBadge level={levels[i]} />
                         </TableCell>
                       ))}
                       <TableCell className="text-center">

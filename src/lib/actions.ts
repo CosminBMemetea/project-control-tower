@@ -3,6 +3,7 @@
 import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/require-auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, getAppBaseUrl } from "@/lib/email";
 import {
@@ -90,6 +91,7 @@ function parseDateInput(value: string): Date {
 }
 
 export async function updateProjectLinks(formData: FormData) {
+  await requireAuth();
   const code = str(formData, "code");
   await prisma.project.update({
     where: { code },
@@ -113,6 +115,7 @@ export async function setStructureHierarchyField(
   field: (typeof STRUCTURE_HIERARCHY_ITEMS)[number]["field"],
   value: boolean
 ) {
+  await requireAuth();
   await prisma.project.update({
     where: { id: projectId },
     data: { [field]: value },
@@ -127,6 +130,7 @@ export async function toggleManagerApproval(
   code: string,
   approved: boolean
 ) {
+  await requireAuth();
   await prisma.managerApproval.update({
     where: { id },
     data: { approved, approvedAt: approved ? new Date() : null },
@@ -135,6 +139,7 @@ export async function toggleManagerApproval(
 }
 
 export async function updateManagerApprovalComment(formData: FormData) {
+  await requireAuth();
   const id = str(formData, "id");
   const code = str(formData, "code");
   const comment = str(formData, "comment");
@@ -156,6 +161,7 @@ export async function setGoalLevel(
   goalType: GoalType,
   level: number
 ) {
+  await requireAuth();
   // Same RPC-hardening reasoning as setHealthScore: an invalid goalType is
   // a no-op (no safe substitute goal to fall back to), but an out-of-range
   // level falls back to 0 since it's the same field being set either way.
@@ -172,6 +178,7 @@ export async function setGoalLevel(
 // Kept independent of setGoalLevel so editing the evidence link can never
 // clobber a level someone just set elsewhere on the same page.
 export async function setGoalEvidenceUrl(formData: FormData) {
+  await requireAuth();
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const goalType = str(formData, "goalType") as GoalType;
@@ -189,6 +196,7 @@ export async function setGoalEvidenceUrl(formData: FormData) {
 export async function addQuarterPresentation(
   formData: FormData
 ): Promise<ActionResult> {
+  await requireAuth();
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   // Uppercased so "2026-q1" and "2026-Q1" land on the same row instead of
@@ -211,6 +219,7 @@ export async function addQuarterPresentation(
 }
 
 export async function deleteQuarterPresentation(formData: FormData) {
+  await requireAuth();
   const id = str(formData, "id");
   const code = str(formData, "code");
   await prisma.quarterPresentation.delete({ where: { id } });
@@ -220,6 +229,7 @@ export async function deleteQuarterPresentation(formData: FormData) {
 export async function addTeamsMeeting(
   formData: FormData
 ): Promise<ActionResult> {
+  await requireAuth();
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const type = str(formData, "type");
@@ -250,6 +260,7 @@ export async function addTeamsMeeting(
 export async function upsertCoreMeeting(
   formData: FormData
 ): Promise<ActionResult> {
+  await requireAuth();
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const type = str(formData, "type");
@@ -285,6 +296,7 @@ export async function upsertCoreMeeting(
 export async function updateTeamsMeeting(
   formData: FormData
 ): Promise<ActionResult> {
+  await requireAuth();
   const id = str(formData, "id");
   const code = str(formData, "code");
   const url = str(formData, "url");
@@ -309,6 +321,7 @@ export async function setMeetingRecurrence(
   recurrenceType: string,
   recurrenceLabel: string
 ) {
+  await requireAuth();
   await prisma.teamsMeeting.update({
     where: { id },
     data: {
@@ -320,6 +333,7 @@ export async function setMeetingRecurrence(
 }
 
 export async function markMeetingOccurred(formData: FormData) {
+  await requireAuth();
   const id = str(formData, "id");
   const code = str(formData, "code");
   await prisma.teamsMeeting.update({
@@ -330,6 +344,7 @@ export async function markMeetingOccurred(formData: FormData) {
 }
 
 export async function deleteTeamsMeeting(formData: FormData) {
+  await requireAuth();
   const id = str(formData, "id");
   const code = str(formData, "code");
   await prisma.teamsMeeting.delete({ where: { id } });
@@ -341,6 +356,7 @@ export async function deleteTeamsMeeting(formData: FormData) {
 // Submission History row's "Copy link" / "Email" (mailto:) buttons are
 // the primary way to get it to the recipient, no configuration needed.
 export async function sendChecklist(formData: FormData): Promise<ActionResult> {
+  await requireAuth();
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const recipientEmail = str(formData, "recipientEmail");
@@ -432,6 +448,7 @@ export async function setMonitoringCheck(
   questionId: string,
   checked: boolean
 ) {
+  await requireAuth();
   await prisma.monitoringResponse.upsert({
     where: { projectId_questionId: { projectId, questionId } },
     update: { checked },
@@ -447,6 +464,7 @@ export async function setMonitoringCheck(
 export async function createReport(
   formData: FormData
 ): Promise<ActionResult> {
+  await requireAuth();
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const type = str(formData, "type");
@@ -476,6 +494,7 @@ export async function createReport(
 export async function updateReportMeta(
   formData: FormData
 ): Promise<ActionResult> {
+  await requireAuth();
   const id = str(formData, "id");
   const code = str(formData, "code");
   const type = str(formData, "type");
@@ -505,6 +524,7 @@ export async function updateReportMeta(
 // same editing session, so there's no "sibling form" staleness risk the
 // way there was with independent per-row toggles elsewhere in the app.
 export async function saveReportSections(formData: FormData) {
+  await requireAuth();
   const reportId = str(formData, "reportId");
   const code = str(formData, "code");
   const sectionIds = formData.getAll("sectionId").map(String);
@@ -530,6 +550,7 @@ export async function saveReportSections(formData: FormData) {
 }
 
 export async function deleteReport(formData: FormData) {
+  await requireAuth();
   const id = str(formData, "id");
   const code = str(formData, "code");
   await prisma.report.delete({ where: { id } });
@@ -542,6 +563,7 @@ export async function deleteReport(formData: FormData) {
 export async function addTemplateSection(
   formData: FormData
 ): Promise<ActionResult> {
+  await requireAuth();
   const label = str(formData, "label");
   const hasLinks = formData.get("hasLinks") === "on";
   if (!label) return { error: "Section name is required." };
@@ -559,6 +581,7 @@ export async function addTemplateSection(
 export async function updateTemplateSection(
   formData: FormData
 ): Promise<ActionResult> {
+  await requireAuth();
   const id = str(formData, "id");
   const label = str(formData, "label");
   const hasLinks = formData.get("hasLinks") === "on";
@@ -573,6 +596,7 @@ export async function updateTemplateSection(
 }
 
 export async function deleteTemplateSection(formData: FormData) {
+  await requireAuth();
   const id = str(formData, "id");
   await prisma.reportTemplateSection.delete({ where: { id } });
   revalidatePath("/report-template");
@@ -580,6 +604,7 @@ export async function deleteTemplateSection(formData: FormData) {
 }
 
 export async function moveTemplateSection(formData: FormData) {
+  await requireAuth();
   const id = str(formData, "id");
   const direction = str(formData, "direction"); // "up" | "down"
 
@@ -616,6 +641,7 @@ export async function moveTemplateSection(formData: FormData) {
 export async function addComplianceCheck(
   formData: FormData
 ): Promise<ActionResult> {
+  await requireAuth();
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const description = str(formData, "description");
@@ -646,6 +672,7 @@ export async function setAllocatedFte(
   code: string,
   value: number
 ) {
+  await requireAuth();
   const safeValue = Number.isFinite(value)
     ? Math.min(Math.max(value, 0), MAX_ALLOCATED_FTE)
     : 0;
@@ -668,6 +695,7 @@ export async function setRagStatus(
   code: string,
   status: string
 ) {
+  await requireAuth();
   const safeStatus: RagStatus = (RAG_STATUSES as readonly string[]).includes(
     status
   )
@@ -681,6 +709,7 @@ export async function setRagStatus(
 }
 
 export async function setRagComment(formData: FormData) {
+  await requireAuth();
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const ragComment = str(formData, "ragComment");
@@ -694,6 +723,7 @@ export async function setRagComment(formData: FormData) {
 // --- Risk Register ---
 
 export async function addRisk(formData: FormData): Promise<ActionResult> {
+  await requireAuth();
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const title = str(formData, "title");
@@ -731,6 +761,7 @@ export async function addRisk(formData: FormData): Promise<ActionResult> {
 // owner/mitigation/status/date all edited together, so "closing" a risk
 // is just picking Closed here and saving like any other field.
 export async function updateRisk(formData: FormData): Promise<ActionResult> {
+  await requireAuth();
   const id = str(formData, "id");
   const code = str(formData, "code");
   const title = str(formData, "title");
@@ -769,6 +800,7 @@ export async function updateRisk(formData: FormData): Promise<ActionResult> {
 }
 
 export async function deleteRisk(formData: FormData) {
+  await requireAuth();
   const id = str(formData, "id");
   const code = str(formData, "code");
   await prisma.risk.delete({ where: { id } });
@@ -789,6 +821,7 @@ export async function setHealthScore(
   dimension: HealthDimension,
   score: number
 ) {
+  await requireAuth();
   if (!isHealthDimension(dimension)) return;
   const safeScore = (HEALTH_SCORES as readonly number[]).includes(score)
     ? score
@@ -802,6 +835,7 @@ export async function setHealthScore(
 }
 
 export async function setHealthComment(formData: FormData): Promise<ActionResult> {
+  await requireAuth();
   const projectId = str(formData, "projectId");
   const code = str(formData, "code");
   const dimension = str(formData, "dimension");
@@ -817,6 +851,7 @@ export async function setHealthComment(formData: FormData): Promise<ActionResult
 }
 
 export async function toggleComplianceCompliant(formData: FormData) {
+  await requireAuth();
   const id = str(formData, "id");
   const code = str(formData, "code");
   const check = await prisma.complianceCheck.findUniqueOrThrow({
