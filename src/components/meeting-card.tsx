@@ -15,6 +15,7 @@ import {
   nextOccurrence,
   recurrenceDisplay,
 } from "@/lib/meeting-status";
+import { formatDate, formatDateLongLocal } from "@/lib/period";
 import { MeetingStatusBadge } from "@/components/meeting-status-badge";
 import { MeetingRecurrenceControl } from "@/components/meeting-recurrence-control";
 import { MeetingEditFields } from "@/components/meeting-edit-fields";
@@ -153,18 +154,12 @@ export function MeetingCard({
           <p>
             Last occurred:{" "}
             {meeting.lastOccurredAt
-              ? new Date(meeting.lastOccurredAt).toLocaleDateString()
+              ? formatDate(meeting.lastOccurredAt)
               : "never logged"}
           </p>
           <p>
             Next occurrence:{" "}
-            {next
-              ? next.toLocaleDateString(undefined, {
-                  weekday: "long",
-                  month: "short",
-                  day: "numeric",
-                })
-              : "—"}
+            {next ? formatDateLongLocal(next) : "—"}
           </p>
         </div>
 

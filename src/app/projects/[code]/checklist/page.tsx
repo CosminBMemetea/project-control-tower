@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Send, ExternalLink, Mail, ListChecks } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { formatDate } from "@/lib/period";
 import { sendChecklist } from "@/lib/actions";
 import { CHECKLIST_QUESTIONS, CHECKLIST_VERIFICATION_DAYS } from "@/lib/constants";
 import { computeChecklistStatus } from "@/lib/checklist-status";
@@ -110,7 +111,7 @@ export default async function ChecklistPage({
               <span className="font-medium text-foreground">
                 {lastSubmitted.recipientEmail}
               </span>{" "}
-              on {new Date(lastSubmitted.submittedAt!).toLocaleDateString()}.
+              on {formatDate(lastSubmitted.submittedAt!)}.
               Verification is expected at least every{" "}
               {CHECKLIST_VERIFICATION_DAYS} days.
             </p>
@@ -155,13 +156,13 @@ export default async function ChecklistPage({
                   return (
                     <TableRow key={sub.id}>
                       <TableCell className="whitespace-nowrap">
-                        {new Date(sub.sentAt).toLocaleDateString()}
+                        {formatDate(sub.sentAt)}
                       </TableCell>
                       <TableCell>{sub.recipientEmail}</TableCell>
                       <TableCell>
                         <Badge variant={sub.submittedAt ? "default" : "outline"}>
                           {sub.submittedAt
-                            ? `Answered ${new Date(sub.submittedAt).toLocaleDateString()}`
+                            ? `Answered ${formatDate(sub.submittedAt)}`
                             : "Awaiting answers"}
                         </Badge>
                       </TableCell>

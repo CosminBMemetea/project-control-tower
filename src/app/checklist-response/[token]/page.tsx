@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { formatDateTime } from "@/lib/period";
 import { submitChecklistResponse } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,11 +43,7 @@ export default async function ChecklistResponsePage({
         </p>
         {submission.submittedAt && (
           <Badge variant="default" className="mt-3">
-            Last submitted{" "}
-            {new Date(submission.submittedAt).toLocaleString(undefined, {
-              dateStyle: "medium",
-              timeStyle: "short",
-            })}
+            Last submitted {formatDateTime(submission.submittedAt)}
           </Badge>
         )}
       </div>

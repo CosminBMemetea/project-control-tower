@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Plus, ClipboardCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { formatDate } from "@/lib/period";
 import { addComplianceCheck, toggleComplianceCompliant } from "@/lib/actions";
 import { GOAL_LABELS } from "@/lib/constants";
 import { GoalProgressForm } from "@/components/goal-progress-form";
@@ -56,7 +57,7 @@ export default async function CompliancePage({
                 <div className="text-sm">
                   <div className="font-medium">{c.description}</div>
                   <div className="text-xs text-muted-foreground">
-                    {new Date(c.checkedAt).toLocaleDateString()}
+                    {formatDate(c.checkedAt)}
                     {c.deviationNote ? ` — ${c.deviationNote}` : ""}
                   </div>
                 </div>

@@ -8,6 +8,7 @@ import {
   toggleManagerApproval,
   setManagerApprovalComment,
 } from "@/lib/actions";
+import { formatDate } from "@/lib/period";
 
 export function ManagerApprovalRow({
   id,
@@ -54,7 +55,7 @@ export function ManagerApprovalRow({
         onSave={(next) => setManagerApprovalComment(id, code, next)}
       />
       <span className="text-xs text-muted-foreground w-32 shrink-0">
-        {approvedAt ? new Date(approvedAt).toLocaleDateString() : "Not approved"}
+        {approvedAt ? formatDate(approvedAt) : "Not approved"}
       </span>
     </div>
   );

@@ -1,24 +1,13 @@
 import { REPORT_TYPE_LABELS, type ReportType } from "@/lib/constants";
-import { isMondayOrThursday } from "@/lib/period";
-
-const MONTH_YEAR = (d: Date) =>
-  d.toLocaleDateString(undefined, {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-
-const WEEKDAY_MONTH_DAY = (d: Date) =>
-  d.toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+import {
+  formatMonthYear,
+  formatWeekdayMonthDay,
+  isMondayOrThursday,
+} from "@/lib/period";
 
 // One human label per report, combining its type and date. Falls back to
 // the custom title when there is one (mainly for CUSTOM reports).
+// Uses locale-stable formatters so SSR HTML matches client hydration.
 export function reportLabel(
   type: string,
   reportDate: Date,
@@ -27,13 +16,13 @@ export function reportLabel(
   if (title) return title;
   switch (type as ReportType) {
     case "MID_MONTH":
-      return `Mid-Month — ${MONTH_YEAR(reportDate)}`;
+      return `Mid-Month — ${formatMonthYear(reportDate)}`;
     case "END_MONTH":
-      return `End-Month — ${MONTH_YEAR(reportDate)}`;
+      return `End-Month — ${formatMonthYear(reportDate)}`;
     case "WEEKLY":
-      return `Weekly Status — ${WEEKDAY_MONTH_DAY(reportDate)}`;
+      return `Weekly Status — ${formatWeekdayMonthDay(reportDate)}`;
     default:
-      return `${REPORT_TYPE_LABELS[type as ReportType] ?? type} — ${WEEKDAY_MONTH_DAY(reportDate)}`;
+      return `${REPORT_TYPE_LABELS[type as ReportType] ?? type} — ${formatWeekdayMonthDay(reportDate)}`;
   }
 }
 
