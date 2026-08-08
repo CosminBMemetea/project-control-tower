@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { setStructureHierarchyField } from "@/lib/actions";
+import { useAutosave } from "@/hooks/use-autosave";
 import type { STRUCTURE_HIERARCHY_ITEMS } from "@/lib/constants";
 
 export function StructureHierarchyCheckbox({
@@ -18,7 +19,7 @@ export function StructureHierarchyCheckbox({
 }) {
   const [checked, setChecked] = useState(serverChecked);
   const [prevServerChecked, setPrevServerChecked] = useState(serverChecked);
-  const [isPending, startTransition] = useTransition();
+  const { isPending, save } = useAutosave();
 
   if (serverChecked !== prevServerChecked) {
     setPrevServerChecked(serverChecked);
@@ -31,9 +32,7 @@ export function StructureHierarchyCheckbox({
       disabled={isPending}
       onCheckedChange={(value) => {
         setChecked(value);
-        startTransition(async () => {
-          await setStructureHierarchyField(projectId, code, field, value);
-        });
+        save(() => setStructureHierarchyField(projectId, code, field, value));
       }}
     />
   );

@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { GOAL_LEVELS, type GoalType } from "@/lib/constants";
 import { setGoalLevel } from "@/lib/actions";
+import { useAutosave } from "@/hooks/use-autosave";
 import { GoalBadge } from "@/components/goal-badge";
 
 /**
- * The one control that can change a GoalProgress.level. Used from both
- * the Portfolio Overview grid and the per-project goal tabs so there is
- * exactly one save path for "current level" — auto-saves on change via
- * setGoalLevel, no separate Save button to forget.
+ * The one control that can change a GoalProgress.level. Auto-saves on
+ * change via setGoalLevel — no separate Save button.
  */
 export function GoalLevelSelect({
   projectId,
@@ -26,7 +25,7 @@ export function GoalLevelSelect({
 }) {
   const [level, setLevel] = useState(serverLevel);
   const [prevServerLevel, setPrevServerLevel] = useState(serverLevel);
-  const [isPending, startTransition] = useTransition();
+  const { isPending, save } = useAutosave();
 
   if (serverLevel !== prevServerLevel) {
     setPrevServerLevel(serverLevel);
@@ -49,9 +48,7 @@ export function GoalLevelSelect({
         onChange={(e) => {
           const next = Number(e.target.value);
           setLevel(next);
-          startTransition(async () => {
-            await setGoalLevel(projectId, code, goalType, next);
-          });
+          save(() => setGoalLevel(projectId, code, goalType, next));
         }}
         className="h-7 rounded-md border border-input bg-transparent px-1.5 text-xs shadow-xs disabled:opacity-50"
       >

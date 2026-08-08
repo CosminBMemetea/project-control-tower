@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import {
   HEALTH_SCORES,
   HEALTH_SCORE_LABELS,
@@ -8,18 +8,11 @@ import {
   type HealthDimension,
 } from "@/lib/constants";
 import { setHealthComment, setHealthScore } from "@/lib/actions";
-import { ControlledInput } from "@/components/controlled-input";
-import { ActionForm } from "@/components/action-form";
-import { Button } from "@/components/ui/button";
+import { useAutosave } from "@/hooks/use-autosave";
+import { AutosaveInput } from "@/components/autosave-text-field";
 
-// Score auto-saves the moment the dropdown changes (same pattern as
-// GoalLevelSelect / RagStatusControl); the comment is a separate save so
-// editing one can never clobber an in-flight change to the other. The
-// <select> must live OUTSIDE the comment <form> (a sibling, not a
-// descendant) — React resets a form's native form-associated elements
-// after an action completes, which would snap an in-form <select> back
-// to its first <option> (score 1, "Critical") every time the comment is
-// saved, since nothing marks a different one as the DOM's own default.
+// Score auto-saves the moment the dropdown changes; the comment is a
+// separate blur/debounced save so editing one can never clobber the other.
 export function HealthDimensionRow({
   projectId,
   code,
@@ -35,7 +28,7 @@ export function HealthDimensionRow({
 }) {
   const [score, setScore] = useState(serverScore);
   const [prevServerScore, setPrevServerScore] = useState(serverScore);
-  const [isPending, startTransition] = useTransition();
+  const { isPending, save } = useAutosave();
 
   if (serverScore !== prevServerScore) {
     setPrevServerScore(serverScore);
@@ -54,9 +47,7 @@ export function HealthDimensionRow({
         onChange={(e) => {
           const next = Number(e.target.value);
           setScore(next);
-          startTransition(async () => {
-            await setHealthScore(projectId, code, dimension, next);
-          });
+          save(() => setHealthScore(projectId, code, dimension, next));
         }}
         className="h-8 w-36 shrink-0 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs disabled:opacity-50"
       >
@@ -66,21 +57,14 @@ export function HealthDimensionRow({
           </option>
         ))}
       </select>
-      <ActionForm action={setHealthComment} className="flex flex-1 min-w-40 items-center gap-3">
-        <input type="hidden" name="projectId" value={projectId} />
-        <input type="hidden" name="code" value={code} />
-        <input type="hidden" name="dimension" value={dimension} />
-        <ControlledInput
-          name="comment"
-          placeholder="Optional note explaining the score"
-          defaultValue={comment ?? ""}
-          maxLength={200}
-          className="flex-1 min-w-40"
-        />
-        <Button type="submit" size="sm" variant="outline">
-          Save
-        </Button>
-      </ActionForm>
+      <AutosaveInput
+        placeholder="Optional note explaining the score"
+        value={comment ?? ""}
+        maxLength={200}
+        className="flex-1 min-w-40"
+        aria-label={`${HEALTH_DIMENSION_LABELS[dimension]} comment`}
+        onSave={(next) => setHealthComment(projectId, code, dimension, next)}
+      />
     </div>
   );
 }

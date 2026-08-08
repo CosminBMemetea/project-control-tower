@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Check } from "lucide-react";
+import { useState } from "react";
 import { RECURRENCE_TYPES, RECURRENCE_LABELS } from "@/lib/constants";
 import { setMeetingRecurrence } from "@/lib/actions";
-import { Button } from "@/components/ui/button";
+import { useAutosave } from "@/hooks/use-autosave";
+import { AutosaveInput } from "@/components/autosave-text-field";
 
 // Quick, always-visible recurrence editor for an existing meeting —
-// auto-saves on change so recurrence can be set (or corrected)
-// retroactively in one click, no need to open the schedule edit panel.
+// auto-saves on change / blur. No separate Save button.
 export function MeetingRecurrenceControl({
   meetingId,
   code,
@@ -21,24 +20,13 @@ export function MeetingRecurrenceControl({
   recurrenceLabel: string | null;
 }) {
   const [type, setType] = useState(serverType ?? "");
-  const [label, setLabel] = useState(serverLabel ?? "");
   const [prevServerType, setPrevServerType] = useState(serverType ?? "");
-  const [prevServerLabel, setPrevServerLabel] = useState(serverLabel ?? "");
-  const [isPending, startTransition] = useTransition();
+  const { isPending, save } = useAutosave();
 
   const nextServerType = serverType ?? "";
-  const nextServerLabel = serverLabel ?? "";
-  if (nextServerType !== prevServerType || nextServerLabel !== prevServerLabel) {
+  if (nextServerType !== prevServerType) {
     setPrevServerType(nextServerType);
-    setPrevServerLabel(nextServerLabel);
     setType(nextServerType);
-    setLabel(nextServerLabel);
-  }
-
-  function save(nextType: string, nextLabel: string) {
-    startTransition(async () => {
-      await setMeetingRecurrence(meetingId, code, nextType, nextLabel);
-    });
   }
 
   return (
@@ -50,7 +38,9 @@ export function MeetingRecurrenceControl({
         onChange={(e) => {
           const next = e.target.value;
           setType(next);
-          save(next, label);
+          // Custom label only applies when type is CUSTOM — clear on switch.
+          const label = next === "CUSTOM" ? (serverLabel ?? "") : "";
+          save(() => setMeetingRecurrence(meetingId, code, next, label));
         }}
         className="h-7 flex-1 rounded-md border border-input bg-transparent px-1.5 text-xs shadow-xs disabled:opacity-50"
       >
@@ -62,37 +52,15 @@ export function MeetingRecurrenceControl({
         ))}
       </select>
       {type === "CUSTOM" && (
-        <>
-          <input
-            aria-label="Custom recurrence"
-            value={label}
-            disabled={isPending}
-            onChange={(e) => setLabel(e.target.value)}
-            onBlur={() => save(type, label)}
-            onKeyDown={(e) => {
-              // Blur alone loses whatever's typed if the user navigates
-              // away without clicking off the field first (e.g. a link
-              // click steals focus without firing blur first in some
-              // browsers) — Enter is an explicit, unambiguous save.
-              if (e.key === "Enter") {
-                e.preventDefault();
-                save(type, label);
-              }
-            }}
-            placeholder="e.g. every 3 weeks on Thu"
-            className="h-7 flex-1 min-w-0 rounded-md border border-input bg-transparent px-1.5 text-xs shadow-xs disabled:opacity-50"
-          />
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="outline"
-            disabled={isPending}
-            aria-label="Save custom recurrence"
-            onClick={() => save(type, label)}
-          >
-            <Check />
-          </Button>
-        </>
+        <AutosaveInput
+          aria-label="Custom recurrence"
+          value={serverLabel ?? ""}
+          placeholder="e.g. every 3 weeks on Thu"
+          className="h-7 flex-1 min-w-0 text-xs"
+          onSave={(next) =>
+            setMeetingRecurrence(meetingId, code, "CUSTOM", next)
+          }
+        />
       )}
     </div>
   );

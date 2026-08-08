@@ -1,8 +1,9 @@
+"use client";
+
 import { setGoalEvidenceUrl } from "@/lib/actions";
 import { GOAL_LABELS, type GoalType } from "@/lib/constants";
 import { GoalLevelSelect } from "@/components/goal-level-select";
-import { ControlledInput } from "@/components/controlled-input";
-import { Button } from "@/components/ui/button";
+import { AutosaveInput } from "@/components/autosave-text-field";
 
 export function GoalProgressForm({
   projectId,
@@ -30,23 +31,13 @@ export function GoalProgressForm({
         level={level}
       />
 
-      <form
-        action={setGoalEvidenceUrl}
-        className="flex flex-1 min-w-64 items-center gap-2"
-      >
-        <input type="hidden" name="projectId" value={projectId} />
-        <input type="hidden" name="code" value={code} />
-        <input type="hidden" name="goalType" value={goalType} />
-        <ControlledInput
-          name="evidenceUrl"
-          placeholder="Evidence link (optional)"
-          defaultValue={evidenceUrl ?? ""}
-          className="flex-1"
-        />
-        <Button type="submit" size="sm" variant="outline">
-          Save Evidence
-        </Button>
-      </form>
+      <AutosaveInput
+        placeholder="Evidence link (optional)"
+        value={evidenceUrl ?? ""}
+        className="flex-1 min-w-64"
+        aria-label={`${GOAL_LABELS[goalType]} evidence link`}
+        onSave={(next) => setGoalEvidenceUrl(projectId, code, goalType, next)}
+      />
     </div>
   );
 }

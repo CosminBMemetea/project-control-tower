@@ -1,12 +1,12 @@
-import { ArrowUp, ArrowDown, Save, Trash2, Plus, FileText } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, Plus, FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import {
   addTemplateSection,
-  updateTemplateSection,
   deleteTemplateSection,
   moveTemplateSection,
 } from "@/lib/actions";
 import { EmptyState } from "@/components/empty-state";
+import { TemplateSectionRow } from "@/components/template-section-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ControlledInput } from "@/components/controlled-input";
 import { ControlledCheckbox } from "@/components/controlled-checkbox";
@@ -28,7 +28,7 @@ export default async function ReportTemplatePage() {
           These sections apply to every report, on every project. Add,
           rename, reorder, or remove sections here — no code changes
           needed. Removing a section deletes its content from all existing
-          reports too.
+          reports too. Edits save automatically.
         </p>
       </div>
 
@@ -38,7 +38,11 @@ export default async function ReportTemplatePage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {sections.length === 0 && (
-            <EmptyState icon={FileText} title="No sections defined yet" description="Add one below." />
+            <EmptyState
+              icon={FileText}
+              title="No sections defined yet"
+              description="Add one below."
+            />
           )}
           {sections.map((section, i) => (
             <div
@@ -74,25 +78,11 @@ export default async function ReportTemplatePage() {
                 </form>
               </div>
 
-              <ActionForm
-                action={updateTemplateSection}
-                className="flex flex-1 flex-wrap items-center gap-3"
-              >
-                <input type="hidden" name="id" value={section.id} />
-                <ControlledInput
-                  name="label"
-                  defaultValue={section.label}
-                  className="flex-1 min-w-48"
-                />
-                <label className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
-                  <ControlledCheckbox name="hasLinks" checked={section.hasLinks} />
-                  Supports links
-                </label>
-                <Button type="submit" size="sm" variant="outline">
-                  <Save className="size-3.5" />
-                  Save
-                </Button>
-              </ActionForm>
+              <TemplateSectionRow
+                id={section.id}
+                label={section.label}
+                hasLinks={section.hasLinks}
+              />
 
               <form action={deleteTemplateSection}>
                 <input type="hidden" name="id" value={section.id} />
@@ -107,6 +97,7 @@ export default async function ReportTemplatePage() {
           <ActionForm
             action={addTemplateSection}
             className="flex flex-wrap items-center gap-3 pt-2 border-t"
+            successMessage="Section added"
           >
             <ControlledInput
               name="label"

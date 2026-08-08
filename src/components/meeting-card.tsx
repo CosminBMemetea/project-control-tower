@@ -1,7 +1,6 @@
 import { Plus, ExternalLink, CheckCircle2, Trash2 } from "lucide-react";
 import {
   upsertCoreMeeting,
-  updateTeamsMeeting,
   markMeetingOccurred,
   deleteTeamsMeeting,
 } from "@/lib/actions";
@@ -18,6 +17,7 @@ import {
 } from "@/lib/meeting-status";
 import { MeetingStatusBadge } from "@/components/meeting-status-badge";
 import { MeetingRecurrenceControl } from "@/components/meeting-recurrence-control";
+import { MeetingEditFields } from "@/components/meeting-edit-fields";
 import { SafeLink } from "@/components/safe-link";
 import { ActionForm } from "@/components/action-form";
 import { ControlledInput } from "@/components/controlled-input";
@@ -211,27 +211,13 @@ export function MeetingCard({
           <summary className="cursor-pointer text-muted-foreground">
             Edit schedule / link
           </summary>
-          <ActionForm action={updateTeamsMeeting} className="space-y-2 pt-2">
-            <input type="hidden" name="id" value={meeting.id} />
-            <input type="hidden" name="code" value={code} />
-            <ControlledInput
-              name="url"
-              defaultValue={meeting.url}
-              className="h-8 text-xs"
-            />
-            <div className="flex gap-2">
-              <DaySelect defaultValue={meeting.dayOfWeek ?? ""} />
-              <ControlledInput
-                name="time"
-                placeholder="10:00"
-                defaultValue={meeting.time ?? ""}
-                className="h-8 w-20 text-xs"
-              />
-            </div>
-            <Button type="submit" size="sm" variant="outline" className="w-full">
-              Save
-            </Button>
-          </ActionForm>
+          <MeetingEditFields
+            meetingId={meeting.id}
+            code={code}
+            url={meeting.url}
+            dayOfWeek={meeting.dayOfWeek}
+            time={meeting.time}
+          />
         </details>
       </CardContent>
     </Card>

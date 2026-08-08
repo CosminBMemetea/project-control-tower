@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { setMonitoringCheck } from "@/lib/actions";
+import { useAutosave } from "@/hooks/use-autosave";
 
 export function MonitoringCheckbox({
   projectId,
@@ -17,7 +18,7 @@ export function MonitoringCheckbox({
 }) {
   const [checked, setChecked] = useState(serverChecked);
   const [prevServerChecked, setPrevServerChecked] = useState(serverChecked);
-  const [isPending, startTransition] = useTransition();
+  const { isPending, save } = useAutosave();
 
   if (serverChecked !== prevServerChecked) {
     setPrevServerChecked(serverChecked);
@@ -30,9 +31,7 @@ export function MonitoringCheckbox({
       disabled={isPending}
       onCheckedChange={(value) => {
         setChecked(value);
-        startTransition(async () => {
-          await setMonitoringCheck(projectId, code, questionId, value);
-        });
+        save(() => setMonitoringCheck(projectId, code, questionId, value));
       }}
     />
   );

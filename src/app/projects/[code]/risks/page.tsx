@@ -1,18 +1,14 @@
 import { notFound } from "next/navigation";
-import { Plus, Save, Trash2, ShieldAlert } from "lucide-react";
+import { Plus, Trash2, ShieldAlert } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { addRisk, deleteRisk, updateRisk } from "@/lib/actions";
+import { addRisk, deleteRisk } from "@/lib/actions";
 import {
   RISK_LEVELS,
   RISK_LEVEL_LABELS,
-  RISK_STATUSES,
-  RISK_STATUS_LABELS,
   isHighSeverity,
-  type RiskStatus,
 } from "@/lib/constants";
-import { RiskLevelBadge } from "@/components/risk-level-badge";
+import { RiskEditor } from "@/components/risk-editor";
 import { ActionForm } from "@/components/action-form";
-import { ControlledInput } from "@/components/controlled-input";
 import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -27,10 +23,6 @@ const SELECT_CLASS =
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function dateInputValue(d: Date) {
-  return new Date(d).toISOString().slice(0, 10);
 }
 
 export default async function RisksPage({
@@ -51,7 +43,11 @@ export default async function RisksPage({
   // `status` sorts alphabetically in the DB (CLOSED, MITIGATING, OPEN),
   // which would bury the actionable risks below resolved ones — reorder
   // so Open/Mitigating always lead and Closed sinks to the bottom.
-  const STATUS_ORDER: Record<string, number> = { OPEN: 0, MITIGATING: 1, CLOSED: 2 };
+  const STATUS_ORDER: Record<string, number> = {
+    OPEN: 0,
+    MITIGATING: 1,
+    CLOSED: 2,
+  };
   project.risks.sort(
     (a, b) => (STATUS_ORDER[a.status] ?? 0) - (STATUS_ORDER[b.status] ?? 0)
   );
@@ -85,126 +81,8 @@ export default async function RisksPage({
           ) : (
             <div className="space-y-4">
               {project.risks.map((risk) => (
-                <div
-                  key={risk.id}
-                  className="rounded-lg border p-3 space-y-3"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-medium text-sm">{risk.title}</div>
-                    <div className="flex items-center gap-1.5">
-                      <RiskLevelBadge level={risk.impact} prefix="Impact:" />
-                      <RiskLevelBadge
-                        level={risk.probability}
-                        prefix="Prob:"
-                      />
-                      <Badge
-                        variant={
-                          risk.status === "CLOSED"
-                            ? "secondary"
-                            : risk.status === "MITIGATING"
-                              ? "outline"
-                              : "destructive"
-                        }
-                      >
-                        {RISK_STATUS_LABELS[risk.status as RiskStatus] ?? risk.status}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <ActionForm
-                    action={updateRisk}
-                    className="grid gap-3 sm:grid-cols-2"
-                  >
-                    <input type="hidden" name="id" value={risk.id} />
-                    <input type="hidden" name="code" value={project.code} />
-                    <div className="grid gap-1.5">
-                      <Label>Title</Label>
-                      <ControlledInput
-                        name="title"
-                        defaultValue={risk.title}
-                      />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label>Owner</Label>
-                      <ControlledInput
-                        name="owner"
-                        defaultValue={risk.owner}
-                      />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label>Impact</Label>
-                      <select
-                        name="impact"
-                        defaultValue={risk.impact}
-                        className={SELECT_CLASS}
-                      >
-                        {RISK_LEVELS.map((l) => (
-                          <option key={l} value={l}>
-                            {RISK_LEVEL_LABELS[l]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label>Probability</Label>
-                      <select
-                        name="probability"
-                        defaultValue={risk.probability}
-                        className={SELECT_CLASS}
-                      >
-                        {RISK_LEVELS.map((l) => (
-                          <option key={l} value={l}>
-                            {RISK_LEVEL_LABELS[l]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label>Status</Label>
-                      <select
-                        name="status"
-                        defaultValue={risk.status}
-                        className={SELECT_CLASS}
-                      >
-                        {RISK_STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {RISK_STATUS_LABELS[s]}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label>Date identified</Label>
-                      <ControlledInput
-                        type="date"
-                        name="identifiedAt"
-                        defaultValue={dateInputValue(risk.identifiedAt)}
-                      />
-                    </div>
-                    <div className="grid gap-1.5 sm:col-span-2">
-                      <Label>Description</Label>
-                      <Textarea
-                        name="description"
-                        defaultValue={risk.description ?? ""}
-                        placeholder="Optional detail"
-                      />
-                    </div>
-                    <div className="grid gap-1.5 sm:col-span-2">
-                      <Label>Mitigation plan</Label>
-                      <Textarea
-                        name="mitigationPlan"
-                        defaultValue={risk.mitigationPlan ?? ""}
-                        placeholder="Optional"
-                      />
-                    </div>
-                    <div className="sm:col-span-2 flex items-center gap-2">
-                      <Button type="submit" size="sm">
-                        <Save className="size-3.5" />
-                        Save
-                      </Button>
-                    </div>
-                  </ActionForm>
-
+                <div key={risk.id} className="space-y-1">
+                  <RiskEditor risk={risk} code={project.code} />
                   <form action={deleteRisk} className="flex justify-end">
                     <input type="hidden" name="id" value={risk.id} />
                     <input type="hidden" name="code" value={project.code} />
@@ -274,7 +152,11 @@ export default async function RisksPage({
               </div>
               <div className="grid gap-1.5">
                 <Label>Date identified</Label>
-                <Input type="date" name="identifiedAt" defaultValue={todayStr()} />
+                <Input
+                  type="date"
+                  name="identifiedAt"
+                  defaultValue={todayStr()}
+                />
               </div>
             </div>
             <div className="grid gap-1.5">

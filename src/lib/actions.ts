@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail, getAppBaseUrl } from "@/lib/email";
 import {
   CHECKLIST_QUESTIONS,
+  PROJECT_LINK_FIELDS,
   STRUCTURE_HIERARCHY_ITEMS,
   MAX_ALLOCATED_FTE,
   RAG_STATUSES,
@@ -90,18 +91,21 @@ function parseDateInput(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
 }
 
-export async function updateProjectLinks(formData: FormData) {
+// Auto-saved on blur from LinkInput, one field at a time (replaces the
+// old combined "Save Links" button) — each link is its own independent
+// save, same reasoning as setStructureHierarchyField, so there's no
+// shared submit step where forgetting to click one button loses every
+// link's edits, and no risk of one field's save ever touching another's.
+export async function setProjectLink(
+  projectId: string,
+  code: string,
+  field: (typeof PROJECT_LINK_FIELDS)[number]["field"],
+  value: string
+) {
   await requireAuth();
-  const code = str(formData, "code");
   await prisma.project.update({
-    where: { code },
-    data: {
-      gitRepoUrl: str(formData, "gitRepoUrl") || null,
-      codebeamerUrl: str(formData, "codebeamerUrl") || null,
-      wowPresentationUrl: str(formData, "wowPresentationUrl") || null,
-      envSetupDocUrl: str(formData, "envSetupDocUrl") || null,
-      onboardingGuideUrl: str(formData, "onboardingGuideUrl") || null,
-    },
+    where: { id: projectId },
+    data: { [field]: value.trim() || null },
   });
   revalidateProject(code);
 }
@@ -138,15 +142,17 @@ export async function toggleManagerApproval(
   revalidateProject(code);
 }
 
-export async function updateManagerApprovalComment(formData: FormData) {
+// Auto-saved on blur / debounced change from ManagerApprovalRow — independent
+// of the approval checkbox so a comment edit never races a toggle.
+export async function setManagerApprovalComment(
+  id: string,
+  code: string,
+  comment: string
+) {
   await requireAuth();
-  const id = str(formData, "id");
-  const code = str(formData, "code");
-  const comment = str(formData, "comment");
-
   await prisma.managerApproval.update({
     where: { id },
-    data: { comment: comment || null },
+    data: { comment: comment.trim() || null },
   });
   revalidateProject(code);
 }
@@ -176,19 +182,22 @@ export async function setGoalLevel(
 }
 
 // Kept independent of setGoalLevel so editing the evidence link can never
-// clobber a level someone just set elsewhere on the same page.
-export async function setGoalEvidenceUrl(formData: FormData) {
+// clobber a level someone just set elsewhere on the same page. Auto-saved
+// on blur / debounced change from GoalProgressForm.
+export async function setGoalEvidenceUrl(
+  projectId: string,
+  code: string,
+  goalType: GoalType,
+  evidenceUrl: string
+) {
   await requireAuth();
-  const projectId = str(formData, "projectId");
-  const code = str(formData, "code");
-  const goalType = str(formData, "goalType") as GoalType;
-  const evidenceUrl = str(formData, "evidenceUrl");
   if (!(GOAL_TYPES as readonly string[]).includes(goalType)) return;
+  const url = evidenceUrl.trim() || null;
 
   await prisma.goalProgress.upsert({
     where: { projectId_goalType: { projectId, goalType } },
-    update: { evidenceUrl: evidenceUrl || null },
-    create: { projectId, goalType, level: 0, evidenceUrl: evidenceUrl || null },
+    update: { evidenceUrl: url },
+    create: { projectId, goalType, level: 0, evidenceUrl: url },
   });
   revalidateProject(code);
 }
@@ -288,25 +297,31 @@ export async function upsertCoreMeeting(
   revalidateProject(code);
 }
 
-// Edits any existing meeting row by id — used for both core meeting cards
-// and custom ("OTHER") meeting cards, since both already have a stable id.
-// Deliberately doesn't touch recurrence: that's owned solely by
-// setMeetingRecurrence's quick control, so saving url/day/time here can
-// never silently wipe a recurrence someone just set.
-export async function updateTeamsMeeting(
-  formData: FormData
+// Per-field autosave for an existing meeting — url/day/time each write
+// independently. Deliberately doesn't touch recurrence: that's owned
+// solely by setMeetingRecurrence's quick control.
+export async function setTeamsMeetingField(
+  id: string,
+  code: string,
+  field: "url" | "dayOfWeek" | "time",
+  value: string
 ): Promise<ActionResult> {
   await requireAuth();
-  const id = str(formData, "id");
-  const code = str(formData, "code");
-  const url = str(formData, "url");
-  const dayOfWeek = str(formData, "dayOfWeek");
-  const time = str(formData, "time");
-  if (!url) return { error: "A meeting link is required." };
+  const trimmed = value.trim();
+
+  if (field === "url") {
+    if (!trimmed) return { error: "A meeting link is required." };
+    await prisma.teamsMeeting.update({
+      where: { id },
+      data: { url: trimmed },
+    });
+    revalidateProject(code);
+    return;
+  }
 
   await prisma.teamsMeeting.update({
     where: { id },
-    data: { url, dayOfWeek: dayOfWeek || null, time: time || null },
+    data: { [field]: trimmed || null },
   });
   revalidateProject(code);
 }
@@ -460,7 +475,7 @@ export async function setMonitoringCheck(
 // Creates the report row, then redirects straight to its edit page so
 // the sections can be filled in. Doesn't pre-create ReportSectionEntry
 // rows — the edit page renders one field per *current* template section
-// regardless, and saveReportSections upserts on save.
+// regardless, and setReportSectionField upserts as the user types.
 export async function createReport(
   formData: FormData
 ): Promise<ActionResult> {
@@ -491,61 +506,76 @@ export async function createReport(
   redirect(`/projects/${code}/reporting/${report.id}`);
 }
 
-export async function updateReportMeta(
-  formData: FormData
+// Auto-saved per section field (content or links) from the report editor —
+// each section writes independently so editing one section can never
+// clobber an in-flight edit to another.
+export async function setReportSectionField(
+  reportId: string,
+  code: string,
+  sectionId: string,
+  field: "content" | "links",
+  value: string
+) {
+  await requireAuth();
+  const cleaned = value.trim() || null;
+  const existing = await prisma.reportSectionEntry.findUnique({
+    where: { reportId_sectionId: { reportId, sectionId } },
+  });
+
+  if (existing) {
+    await prisma.reportSectionEntry.update({
+      where: { id: existing.id },
+      data: { [field]: cleaned },
+    });
+  } else {
+    await prisma.reportSectionEntry.create({
+      data: {
+        reportId,
+        sectionId,
+        content: field === "content" ? cleaned : null,
+        links: field === "links" ? cleaned : null,
+      },
+    });
+  }
+  revalidateProject(code);
+}
+
+// Auto-saved on change for discrete meta fields (type) and on blur for
+// free-text meta (title, date) from the report header editor.
+export async function setReportMetaField(
+  id: string,
+  code: string,
+  field: "type" | "reportDate" | "title",
+  value: string
 ): Promise<ActionResult> {
   await requireAuth();
-  const id = str(formData, "id");
-  const code = str(formData, "code");
-  const type = str(formData, "type");
-  const reportDateStr = str(formData, "reportDate");
-  const title = str(formData, "title");
-  if (!type || !reportDateStr)
-    return { error: "Type and date are both required." };
-  if (!(REPORT_TYPES as readonly string[]).includes(type)) {
-    return { error: "Invalid report type." };
+  const trimmed = value.trim();
+
+  if (field === "type") {
+    if (!(REPORT_TYPES as readonly string[]).includes(trimmed)) {
+      return { error: "Invalid report type." };
+    }
+    await prisma.report.update({ where: { id }, data: { type: trimmed } });
+    revalidateProject(code);
+    return;
   }
-  if (!DATE_RE.test(reportDateStr)) {
-    return { error: "Report date must be a valid date." };
+
+  if (field === "reportDate") {
+    if (!DATE_RE.test(trimmed)) {
+      return { error: "Report date must be a valid date." };
+    }
+    await prisma.report.update({
+      where: { id },
+      data: { reportDate: parseDateInput(trimmed) },
+    });
+    revalidateProject(code);
+    return;
   }
 
   await prisma.report.update({
     where: { id },
-    data: {
-      type,
-      reportDate: parseDateInput(reportDateStr),
-      title: title || null,
-    },
+    data: { title: trimmed || null },
   });
-  revalidateProject(code);
-}
-
-// One combined save for the whole report — every section is part of the
-// same editing session, so there's no "sibling form" staleness risk the
-// way there was with independent per-row toggles elsewhere in the app.
-export async function saveReportSections(formData: FormData) {
-  await requireAuth();
-  const reportId = str(formData, "reportId");
-  const code = str(formData, "code");
-  const sectionIds = formData.getAll("sectionId").map(String);
-
-  await Promise.all(
-    sectionIds.map((sectionId) =>
-      prisma.reportSectionEntry.upsert({
-        where: { reportId_sectionId: { reportId, sectionId } },
-        update: {
-          content: str(formData, `content_${sectionId}`) || null,
-          links: str(formData, `links_${sectionId}`) || null,
-        },
-        create: {
-          reportId,
-          sectionId,
-          content: str(formData, `content_${sectionId}`) || null,
-          links: str(formData, `links_${sectionId}`) || null,
-        },
-      })
-    )
-  );
   revalidateProject(code);
 }
 
@@ -578,19 +608,28 @@ export async function addTemplateSection(
   revalidateAllProjectReportingTabs();
 }
 
-export async function updateTemplateSection(
-  formData: FormData
+// Per-field autosave for an existing template section (label on blur,
+// hasLinks on toggle). Replaces the old combined "Save" form.
+export async function setTemplateSectionField(
+  id: string,
+  field: "label" | "hasLinks",
+  value: string | boolean
 ): Promise<ActionResult> {
   await requireAuth();
-  const id = str(formData, "id");
-  const label = str(formData, "label");
-  const hasLinks = formData.get("hasLinks") === "on";
-  if (!label) return { error: "Section name is required." };
 
-  await prisma.reportTemplateSection.update({
-    where: { id },
-    data: { label, hasLinks },
-  });
+  if (field === "label") {
+    const label = String(value).trim();
+    if (!label) return { error: "Section name is required." };
+    await prisma.reportTemplateSection.update({
+      where: { id },
+      data: { label },
+    });
+  } else {
+    await prisma.reportTemplateSection.update({
+      where: { id },
+      data: { hasLinks: Boolean(value) },
+    });
+  }
   revalidatePath("/report-template");
   revalidateAllProjectReportingTabs();
 }
@@ -662,17 +701,17 @@ export async function addComplianceCheck(
 
 // --- Resources (FTE) ---
 
-// Auto-saved on blur from the FTE input — used on both the Portfolio
-// Overview grid and the per-project header, same "one save path" idea as
-// setGoalLevel. Clamped server-side too (not just in FteInput) since this
-// is called directly as a Server Action RPC, not via a validated form —
-// a crafted call could otherwise pass NaN/Infinity/negative values.
+// Auto-saved on blur from the FTE input. Stores the exact decimal the user
+// typed (Float) — no rounding. Clamped server-side only for range safety
+// (negative / over-ceiling / non-finite), never for precision.
 export async function setAllocatedFte(
   projectId: string,
   code: string,
   value: number
 ) {
   await requireAuth();
+  // Preserve full float precision — do not round. Only clamp to [0, max]
+  // and reject non-finite values (NaN / Infinity from a crafted RPC).
   const safeValue = Number.isFinite(value)
     ? Math.min(Math.max(value, 0), MAX_ALLOCATED_FTE)
     : 0;
@@ -708,14 +747,17 @@ export async function setRagStatus(
   revalidateProject(code);
 }
 
-export async function setRagComment(formData: FormData) {
+// Auto-saved on blur / debounced change — independent of setRagStatus so
+// typing a reason never races or blocks a status change.
+export async function setRagComment(
+  projectId: string,
+  code: string,
+  comment: string
+) {
   await requireAuth();
-  const projectId = str(formData, "projectId");
-  const code = str(formData, "code");
-  const ragComment = str(formData, "ragComment");
   await prisma.project.update({
     where: { id: projectId },
-    data: { ragComment: ragComment || null },
+    data: { ragComment: comment.trim() || null },
   });
   revalidateProject(code);
 }
@@ -757,44 +799,78 @@ export async function addRisk(formData: FormData): Promise<ActionResult> {
   revalidateProject(code);
 }
 
-// One combined save per risk — title/description/impact/probability/
-// owner/mitigation/status/date all edited together, so "closing" a risk
-// is just picking Closed here and saving like any other field.
-export async function updateRisk(formData: FormData): Promise<ActionResult> {
+// Per-field autosave for an existing risk — selects save immediately,
+// free-text fields save on blur / debounce from RiskEditor. Each field is
+// its own independent write so editing title can never clobber a status
+// change that landed a moment earlier.
+export async function setRiskField(
+  id: string,
+  code: string,
+  field:
+    | "title"
+    | "owner"
+    | "impact"
+    | "probability"
+    | "status"
+    | "identifiedAt"
+    | "description"
+    | "mitigationPlan",
+  value: string
+): Promise<ActionResult> {
   await requireAuth();
-  const id = str(formData, "id");
-  const code = str(formData, "code");
-  const title = str(formData, "title");
-  const owner = str(formData, "owner");
-  const impact = str(formData, "impact");
-  const probability = str(formData, "probability");
-  const status = str(formData, "status");
-  const identifiedAtStr = str(formData, "identifiedAt");
-  const description = str(formData, "description");
-  const mitigationPlan = str(formData, "mitigationPlan");
-  if (!title || !owner) return { error: "Title and owner are both required." };
-  if (!isRiskLevel(impact) || !isRiskLevel(probability)) {
-    return { error: "Impact and probability must be Low, Medium, or High." };
-  }
-  if (!isRiskStatus(status)) {
-    return { error: "Status must be Open, Mitigating, or Closed." };
-  }
-  if (identifiedAtStr && !DATE_RE.test(identifiedAtStr)) {
-    return { error: "Date identified must be a valid date." };
+  const trimmed = value.trim();
+
+  if (field === "title" || field === "owner") {
+    if (!trimmed) return { error: `${field === "title" ? "Title" : "Owner"} is required.` };
+    await prisma.risk.update({
+      where: { id },
+      data: { [field]: trimmed },
+    });
+    revalidateProject(code);
+    return;
   }
 
+  if (field === "impact" || field === "probability") {
+    if (!isRiskLevel(trimmed)) {
+      return { error: "Impact and probability must be Low, Medium, or High." };
+    }
+    await prisma.risk.update({
+      where: { id },
+      data: { [field]: trimmed },
+    });
+    revalidateProject(code);
+    return;
+  }
+
+  if (field === "status") {
+    if (!isRiskStatus(trimmed)) {
+      return { error: "Status must be Open, Mitigating, or Closed." };
+    }
+    await prisma.risk.update({
+      where: { id },
+      data: { status: trimmed },
+    });
+    revalidateProject(code);
+    return;
+  }
+
+  if (field === "identifiedAt") {
+    if (trimmed && !DATE_RE.test(trimmed)) {
+      return { error: "Date identified must be a valid date." };
+    }
+    if (!trimmed) return;
+    await prisma.risk.update({
+      where: { id },
+      data: { identifiedAt: parseDateInput(trimmed) },
+    });
+    revalidateProject(code);
+    return;
+  }
+
+  // description | mitigationPlan — optional free text
   await prisma.risk.update({
     where: { id },
-    data: {
-      title,
-      owner,
-      impact,
-      probability,
-      status,
-      identifiedAt: identifiedAtStr ? parseDateInput(identifiedAtStr) : undefined,
-      description: description || null,
-      mitigationPlan: mitigationPlan || null,
-    },
+    data: { [field]: trimmed || null },
   });
   revalidateProject(code);
 }
@@ -834,18 +910,26 @@ export async function setHealthScore(
   revalidateProject(code);
 }
 
-export async function setHealthComment(formData: FormData): Promise<ActionResult> {
+// Auto-saved on blur / debounced change — independent of setHealthScore.
+export async function setHealthComment(
+  projectId: string,
+  code: string,
+  dimension: HealthDimension,
+  comment: string
+) {
   await requireAuth();
-  const projectId = str(formData, "projectId");
-  const code = str(formData, "code");
-  const dimension = str(formData, "dimension");
-  const comment = str(formData, "comment");
-  if (!isHealthDimension(dimension)) return { error: "Invalid health dimension." };
+  if (!isHealthDimension(dimension)) return;
+  const note = comment.trim() || null;
 
   await prisma.projectHealth.upsert({
     where: { projectId_dimension: { projectId, dimension } },
-    update: { comment: comment || null },
-    create: { projectId, dimension, score: HEALTH_DEFAULT_SCORE, comment: comment || null },
+    update: { comment: note },
+    create: {
+      projectId,
+      dimension,
+      score: HEALTH_DEFAULT_SCORE,
+      comment: note,
+    },
   });
   revalidateProject(code);
 }

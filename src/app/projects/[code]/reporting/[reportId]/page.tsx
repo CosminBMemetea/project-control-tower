@@ -1,28 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Save, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { toDateInputValue } from "@/lib/period";
-import { REPORT_TYPES, REPORT_TYPE_LABELS } from "@/lib/constants";
 import { reportLabel, isOffCadenceWeekly } from "@/lib/report-helpers";
-import { updateReportMeta, saveReportSections, deleteReport } from "@/lib/actions";
+import { deleteReport } from "@/lib/actions";
 import { ReportTypeBadge } from "@/components/report-type-badge";
-import { SafeLink } from "@/components/safe-link";
-import { ActionForm } from "@/components/action-form";
+import {
+  ReportMetaEditor,
+  ReportSectionCard,
+} from "@/components/report-section-editor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ControlledInput } from "@/components/controlled-input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-
-function parseLinks(raw: string | null): string[] {
-  if (!raw) return [];
-  return raw
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
 
 export default async function ReportEditPage({
   params,
@@ -59,7 +50,11 @@ export default async function ReportEditPage({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">
-            {reportLabel(report.type, new Date(report.reportDate), report.title)}
+            {reportLabel(
+              report.type,
+              new Date(report.reportDate),
+              report.title
+            )}
           </CardTitle>
           <div className="flex items-center gap-1.5">
             {isOffCadenceWeekly(report.type, new Date(report.reportDate)) && (
@@ -68,51 +63,21 @@ export default async function ReportEditPage({
             <ReportTypeBadge type={report.type} />
           </div>
         </CardHeader>
-        <CardContent>
-          <ActionForm action={updateReportMeta} className="flex flex-wrap items-end gap-3">
-            <input type="hidden" name="id" value={report.id} />
-            <input type="hidden" name="code" value={project.code} />
-            <div className="grid gap-1.5">
-              <label className="text-xs text-muted-foreground">Type</label>
-              <select
-                name="type"
-                defaultValue={report.type}
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
-              >
-                {REPORT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {REPORT_TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid gap-1.5">
-              <label className="text-xs text-muted-foreground">Date</label>
-              <ControlledInput
-                type="date"
-                name="reportDate"
-                defaultValue={toDateInputValue(new Date(report.reportDate))}
-                className="w-40"
-              />
-            </div>
-            <div className="grid gap-1.5 flex-1 min-w-48">
-              <label className="text-xs text-muted-foreground">
-                Title (optional)
-              </label>
-              <ControlledInput name="title" defaultValue={report.title ?? ""} />
-            </div>
-            <Button type="submit" size="sm" variant="outline">
-              <Save className="size-3.5" />
-              Save Details
-            </Button>
-          </ActionForm>
+        <CardContent className="space-y-2">
+          <ReportMetaEditor
+            reportId={report.id}
+            code={project.code}
+            type={report.type}
+            reportDate={toDateInputValue(new Date(report.reportDate))}
+            title={report.title}
+          />
+          <p className="text-xs text-muted-foreground">
+            Details and sections save automatically as you edit.
+          </p>
         </CardContent>
       </Card>
 
-      <form action={saveReportSections} className="space-y-6">
-        <input type="hidden" name="reportId" value={report.id} />
-        <input type="hidden" name="code" value={project.code} />
-
+      <div className="space-y-6">
         {sections.length === 0 ? (
           <Card>
             <CardContent className="pt-6 text-sm text-muted-foreground">
@@ -126,55 +91,21 @@ export default async function ReportEditPage({
         ) : (
           sections.map((section) => {
             const entry = entryBySection.get(section.id);
-            const existingLinks = parseLinks(entry?.links ?? null);
             return (
-              <Card key={section.id}>
-                <CardHeader>
-                  <CardTitle className="text-base">{section.label}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <input type="hidden" name="sectionId" value={section.id} />
-                  <Textarea
-                    name={`content_${section.id}`}
-                    defaultValue={entry?.content ?? ""}
-                    rows={4}
-                    placeholder={`Write ${section.label.toLowerCase()}...`}
-                  />
-                  {section.hasLinks && (
-                    <div className="space-y-2">
-                      {existingLinks.length > 0 && (
-                        <ul className="space-y-1">
-                          {existingLinks.map((url, i) => (
-                            <li key={i}>
-                              <SafeLink href={url} className="text-xs text-primary underline">
-                                {url}
-                              </SafeLink>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      <Textarea
-                        name={`links_${section.id}`}
-                        defaultValue={entry?.links ?? ""}
-                        rows={3}
-                        placeholder="One link per line, e.g. https://tracker.example/item/1234"
-                        className="text-xs"
-                      />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <ReportSectionCard
+                key={section.id}
+                reportId={report.id}
+                code={project.code}
+                sectionId={section.id}
+                label={section.label}
+                hasLinks={section.hasLinks}
+                content={entry?.content ?? null}
+                links={entry?.links ?? null}
+              />
             );
           })
         )}
-
-        {sections.length > 0 && (
-          <Button type="submit">
-            <Save className="size-3.5" />
-            Save Report
-          </Button>
-        )}
-      </form>
+      </div>
 
       <Separator />
 

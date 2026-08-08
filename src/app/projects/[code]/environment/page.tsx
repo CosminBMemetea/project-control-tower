@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
-import { Save } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { updateProjectLinks } from "@/lib/actions";
 import {
+  PROJECT_LINK_FIELDS,
   STRUCTURE_HIERARCHY_ITEMS,
   EXECUTIVE_APPROVAL_LEVEL,
   EXECUTIVE_APPROVAL_LABEL,
@@ -10,29 +9,12 @@ import {
 } from "@/lib/constants";
 import { GoalProgressForm } from "@/components/goal-progress-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ControlledInput } from "@/components/controlled-input";
+import { LinkInput } from "@/components/link-input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { StructureHierarchyCheckbox } from "@/components/structure-hierarchy-checkbox";
 import { ManagerApprovalRow } from "@/components/manager-approval-row";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-
-const LINK_FIELDS: { key: keyof LinkFields; label: string }[] = [
-  { key: "gitRepoUrl", label: "Git Repository URL" },
-  { key: "codebeamerUrl", label: "Requirements / Backlog Tool link" },
-  { key: "wowPresentationUrl", label: "Way of Working presentation" },
-  { key: "envSetupDocUrl", label: "Environment Setup documentation" },
-  { key: "onboardingGuideUrl", label: "Onboarding Guide" },
-];
-
-type LinkFields = {
-  gitRepoUrl: string | null;
-  codebeamerUrl: string | null;
-  wowPresentationUrl: string | null;
-  envSetupDocUrl: string | null;
-  onboardingGuideUrl: string | null;
-};
 
 export default async function EnvironmentPage({
   params,
@@ -61,25 +43,23 @@ export default async function EnvironmentPage({
         <CardHeader>
           <CardTitle className="text-base">Links & References</CardTitle>
         </CardHeader>
-        <CardContent>
-          <form action={updateProjectLinks} className="space-y-4">
-            <input type="hidden" name="code" value={project.code} />
-            {LINK_FIELDS.map((field) => (
-              <div key={field.key} className="grid gap-1.5">
-                <Label htmlFor={field.key}>{field.label}</Label>
-                <ControlledInput
-                  id={field.key}
-                  name={field.key}
-                  defaultValue={project[field.key] ?? ""}
-                  placeholder="https://..."
-                />
-              </div>
-            ))}
-            <Button type="submit" size="sm">
-              <Save className="size-3.5" />
-              Save Links
-            </Button>
-          </form>
+        <CardContent className="space-y-4">
+          {PROJECT_LINK_FIELDS.map(({ field, label }) => (
+            <div key={field} className="grid gap-1.5">
+              <Label htmlFor={field}>{label}</Label>
+              <LinkInput
+                id={field}
+                projectId={project.id}
+                code={project.code}
+                field={field}
+                value={project[field] ?? ""}
+                placeholder="https://..."
+              />
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Changes save automatically as you edit.
+          </p>
         </CardContent>
       </Card>
 

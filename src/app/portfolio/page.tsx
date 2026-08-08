@@ -114,10 +114,10 @@ export default async function PortfolioPage() {
     return issues.map((issue) => ({ project: p, issue }));
   });
 
-  // Rounded to the same 0.1 granularity as FteInput's step — summing raw
-  // floats (e.g. 3.5 + 0.6 + 0.6) can otherwise land on something like
-  // 4.699999999999999 and display that verbatim.
-  const totalFte = Math.round(projects.reduce((sum, p) => sum + p.allocatedFte, 0) * 10) / 10;
+  // Sum exact FTE decimals; strip only float noise (not user precision).
+  // e.g. 1.25 + 1.9 stays exact; 0.1+0.2 noise is cleaned to ~3 decimals.
+  const totalFteRaw = projects.reduce((sum, p) => sum + p.allocatedFte, 0);
+  const totalFte = Math.round(totalFteRaw * 1000) / 1000;
 
   const riskSummary = projects
     .map((p) => {

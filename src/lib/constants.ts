@@ -201,6 +201,17 @@ export function healthTier(average: number): HealthTier {
   return "CRITICAL";
 }
 
+// Links & References (Environment & Rules tab) — single source of truth
+// for both the field list rendered on the page and the whitelist the
+// setProjectLink action trusts (via the field's TS type).
+export const PROJECT_LINK_FIELDS = [
+  { field: "gitRepoUrl", label: "Git Repository URL" },
+  { field: "codebeamerUrl", label: "Requirements / Backlog Tool link" },
+  { field: "wowPresentationUrl", label: "Way of Working presentation" },
+  { field: "envSetupDocUrl", label: "Environment Setup documentation" },
+  { field: "onboardingGuideUrl", label: "Onboarding Guide" },
+] as const;
+
 export const STRUCTURE_HIERARCHY_ITEMS = [
   { field: "epicsPlanned", label: "Epics per year planned" },
   { field: "userStoriesPlanned", label: "User Stories per quarter planned" },
