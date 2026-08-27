@@ -14,7 +14,7 @@
     "db:setup": "prisma migrate dev && prisma db seed",
     "electron:build-resources": "node scripts/build-electron.mjs",
     "electron:start": "electron .",
-    "dist:win": "node scripts/build-electron.mjs && electron-builder --win"
+    "dist:win": "node scripts/build-electron.mjs && electron-builder --win --publish never"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
