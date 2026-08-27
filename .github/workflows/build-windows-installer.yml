@@ -1,9 +1,16 @@
 name: Build Windows installer
 
-# Runs on windows-latest so the native better-sqlite3 rebuild targets
-# Windows for free (node-gyp/electron-rebuild just use whatever platform
-# they're running on) — no cross-compilation needed. Manual trigger, or
+# Runs on Windows so the native better-sqlite3 rebuild targets Windows
+# for free (node-gyp/electron-rebuild just use whatever platform they're
+# running on) — no cross-compilation needed. Manual trigger, or
 # automatically on push to main.
+#
+# Pinned to windows-2022 rather than windows-latest: node-gyp (bundled
+# with npm on Node 20) doesn't recognize the Visual Studio version
+# preinstalled on newer runner images ("unknown version... found at
+# Visual Studio 18"), so it can't even fall back to compiling
+# better-sqlite3 from source when no prebuilt binary matches. windows-2022
+# is the well-established image without this gap.
 on:
   workflow_dispatch:
   push:
@@ -11,7 +18,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
