@@ -55,7 +55,13 @@ function run(cmd, args, opts = {}) {
   // npm/npx are .cmd shims on Windows — execFileSync can't exec those
   // directly without a shell (works fine as-is on macOS/Linux, where
   // they're plain executables, which is why this only shows up in CI).
-  execFileSync(cmd, args, { stdio: "inherit", cwd: root, shell: true, ...opts });
+  // Scoped to just those two (rather than always-on) since Node warns
+  // that shell:true + an args array skips argument escaping — fine here
+  // since every arg is an internally-built path/flag, never user input,
+  // but no reason to take it on for commands that don't need it (e.g.
+  // `node`, which is a real executable on every platform already).
+  const needsShell = process.platform === "win32" && ["npm", "npx"].includes(cmd);
+  execFileSync(cmd, args, { stdio: "inherit", cwd: root, shell: needsShell, ...opts });
 }
 
 function step(label, fn) {
@@ -157,8 +163,28 @@ step("5/5 rebuild better-sqlite3 for Electron's Node ABI", () => {
     })
   );
   run("npm", ["install", "--no-audit", "--no-fund"], { cwd: rebuildDir });
-  run("npx", [
-    "electron-rebuild",
+
+  // Invoke the @electron/rebuild devDependency's CLI script directly by
+  // its resolved path, via `node`, instead of `npx electron-rebuild`:
+  // with cwd pointed at the isolated rebuildDir (required — see the
+  // comment above), npx can't see the root project's node_modules to
+  // find the real @electron/rebuild package, so it silently fetches and
+  // runs the unrelated, years-old, unscoped "electron-rebuild" package
+  // from the registry instead — which bundles a node-gyp old enough to
+  // import Python's long-removed distutils module and fails outright.
+  const electronRebuildCli = path.join(
+    root,
+    "node_modules",
+    "@electron",
+    "rebuild",
+    "lib",
+    "cli.js"
+  );
+  if (!existsSync(electronRebuildCli)) {
+    throw new Error(`@electron/rebuild CLI not found at ${electronRebuildCli} — is it installed?`);
+  }
+  run("node", [
+    electronRebuildCli,
     "--force",
     "--version",
     electronVersion,
