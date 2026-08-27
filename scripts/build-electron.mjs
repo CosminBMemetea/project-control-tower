@@ -38,13 +38,24 @@ import { fileURLToPath } from "node:url";
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const standaloneDir = path.join(root, ".next", "standalone");
 
+// Prisma's SQLite `file:` URL is parsed URI-style — a raw Windows path
+// (backslashes + a `D:` drive letter right after the scheme) is
+// ambiguous there, even though the filesystem itself accepts forward
+// slashes just fine. Always normalize before building a DATABASE_URL.
+function toFileUrl(absPath) {
+  return `file:${absPath.split(path.sep).join("/")}`;
+}
+
 function sha256File(p) {
   return createHash("sha256").update(readFileSync(p)).digest("hex");
 }
 
 function run(cmd, args, opts = {}) {
   console.log(`\n> ${cmd} ${args.join(" ")}`);
-  execFileSync(cmd, args, { stdio: "inherit", cwd: root, ...opts });
+  // npm/npx are .cmd shims on Windows — execFileSync can't exec those
+  // directly without a shell (works fine as-is on macOS/Linux, where
+  // they're plain executables, which is why this only shows up in CI).
+  execFileSync(cmd, args, { stdio: "inherit", cwd: root, shell: true, ...opts });
 }
 
 function step(label, fn) {
@@ -83,7 +94,7 @@ step("4/5 build a fresh, pre-seeded template database", () => {
   rmSync(templatePath, { force: true });
   rmSync(`${templatePath}-journal`, { force: true });
 
-  const env = { ...process.env, DATABASE_URL: `file:${templatePath}` };
+  const env = { ...process.env, DATABASE_URL: toFileUrl(templatePath) };
   run("npx", ["prisma", "migrate", "deploy"], { env });
   run("npx", ["tsx", "prisma/seed.ts"], { env });
 

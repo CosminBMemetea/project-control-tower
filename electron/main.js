@@ -18,6 +18,14 @@ const { fork } = require("node:child_process");
 const SERVER_PORT = 17321; // uncommon, fixed — good enough for a single-user desktop app
 const isDev = !app.isPackaged;
 
+// Prisma's SQLite `file:` URL is parsed URI-style — a raw Windows path
+// (backslashes + a `C:` drive letter right after the scheme) is
+// ambiguous there, even though the filesystem itself accepts forward
+// slashes just fine. Always normalize before building a DATABASE_URL.
+function toFileUrl(absPath) {
+  return `file:${absPath.split(path.sep).join("/")}`;
+}
+
 let serverProcess = null;
 let mainWindow = null;
 
@@ -80,7 +88,7 @@ function startServer() {
       PORT: String(SERVER_PORT),
       HOSTNAME: "127.0.0.1",
       NODE_ENV: "production",
-      DATABASE_URL: `file:${dbPath}`,
+      DATABASE_URL: toFileUrl(dbPath),
     },
     stdio: isDev ? "inherit" : "ignore",
   });
