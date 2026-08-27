@@ -20,6 +20,16 @@ export const metadata: Metadata = {
   description: APP_CONFIG.shortDescription,
 };
 
+// Applies to every route in the app (root layout). Without this, Next
+// tries to statically prerender any page with no cookies()/headers()
+// access — several of these (Portfolio Overview, Projects, Approvals,
+// Report Template) have none, so they'd otherwise get pre-rendered ONCE
+// at build time and keep serving that frozen snapshot in production,
+// never reflecting later database changes. Also required for `next
+// build` to succeed at all without a live, migrated database available
+// at build time (a fresh CI checkout has none).
+export const dynamic = "force-dynamic";
+
 // Accepts "#fff", "fff", "#2563eb", or "2563eb" and normalizes to
 // "#rrggbb" — deployers reasonably type any of these. Returns null for
 // anything else (a CSS color name, rgb(), ...), which the caller still
