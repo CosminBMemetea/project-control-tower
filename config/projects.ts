@@ -15,33 +15,28 @@ export interface ProjectConfig {
 // (or via the app) if you no longer want it.
 export const PROJECTS: ProjectConfig[] = [
   {
-    name: "Sample Project Alpha",
+    name: "Project Alpha",
     code: "ALPHA",
     gitRepoUrl: "https://github.com/example-org/project-alpha",
   },
   {
-    name: "Customer Portal Revamp",
-    code: "PORTAL",
-    gitRepoUrl: "https://github.com/example-org/customer-portal",
+    name: "Project Beta",
+    code: "BETA",
+    gitRepoUrl: "https://github.com/example-org/project-beta",
   },
   {
-    name: "Mobile App Launch",
-    code: "MOBILE",
-    gitRepoUrl: "https://github.com/example-org/mobile-app",
+    name: "Project Gamma",
+    code: "GAMMA",
+    gitRepoUrl: "https://github.com/example-org/project-gamma",
   },
   {
-    name: "Data Platform Migration",
-    code: "DATA-MIG",
-    gitRepoUrl: "https://github.com/example-org/data-platform",
+    name: "Project Delta",
+    code: "DELTA",
+    gitRepoUrl: "https://github.com/example-org/project-delta",
   },
   {
-    name: "API Gateway Upgrade",
-    code: "API-GW",
-    gitRepoUrl: "https://github.com/example-org/api-gateway",
-  },
-  {
-    name: "Internal Tools Revamp",
-    code: "INT-TOOLS",
-    gitRepoUrl: "https://github.com/example-org/internal-tools",
+    name: "Project Epsilon",
+    code: "EPSILON",
+    gitRepoUrl: "https://github.com/example-org/project-epsilon",
   },
 ];

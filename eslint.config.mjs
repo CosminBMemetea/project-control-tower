@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Electron main process: plain CommonJS by convention, outside the
+    // app's TS/ESM linting rules. Build output, not source.
+    "electron/main.js",
+    "dist-electron/**",
   ]),
 ]);
 

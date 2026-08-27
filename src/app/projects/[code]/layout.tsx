@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ProjectTabs } from "@/components/project-tabs";
 import { RagStatusControl } from "@/components/rag-status-control";
 import { FteInput } from "@/components/fte-input";
+import { ProjectNameInput } from "@/components/project-name-input";
 import { Badge } from "@/components/ui/badge";
 
 export default async function ProjectLayout({
@@ -25,9 +26,11 @@ export default async function ProjectLayout({
     <div className="space-y-6">
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {project.name}
-          </h1>
+          <ProjectNameInput
+            projectId={project.id}
+            code={project.code}
+            name={project.name}
+          />
           <Badge variant="secondary">{project.status}</Badge>
           <RagStatusControl
             projectId={project.id}

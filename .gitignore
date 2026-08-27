@@ -46,3 +46,9 @@ next-env.d.ts
 # prisma sqlite database
 /dev.db
 /dev.db-journal
+
+# electron desktop build artifacts
+/dist-electron
+/electron/template.db
+/electron/template.db-journal
+/.electron-rebuild-tmp

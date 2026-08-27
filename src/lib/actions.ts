@@ -91,6 +91,25 @@ function parseDateInput(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
 }
 
+// Auto-saved on blur / debounced change from the project name field in
+// the project header. Only `name` (display label) changes — `code` (the
+// stable identifier used in URLs, links, and revalidation paths) is
+// never touched by a rename.
+export async function setProjectName(
+  projectId: string,
+  code: string,
+  name: string
+): Promise<ActionResult> {
+  await requireAuth();
+  const trimmed = name.trim();
+  if (!trimmed) return { error: "Project name can't be empty." };
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { name: trimmed },
+  });
+  revalidateProject(code);
+}
+
 // Auto-saved on blur from LinkInput, one field at a time (replaces the
 // old combined "Save Links" button) — each link is its own independent
 // save, same reasoning as setStructureHierarchyField, so there's no

@@ -264,7 +264,45 @@ and swap the Prisma datasource provider as above. Set the same environment
 variables from `.env.example`, then run `npm run build && npm run start`
 (or `npx prisma migrate deploy` as a release step) as the start command.
 
+## Windows desktop installer
+
+For handing this to someone on Windows who just wants to run it — no
+Node.js, no terminal, no Docker: `electron/` wraps the app as a desktop
+app, and `electron-builder` packages it into a normal `Setup.exe` (Start
+Menu shortcut, uninstaller, the works). The database lives in the
+per-user AppData folder and is pre-seeded from `config/projects.ts` /
+`config/approvers.ts` on first launch — nothing to configure.
+
+**Easiest path — GitHub Actions:** push this repo to GitHub and either
+wait for the push-to-`main` trigger or run **Actions → Build Windows
+installer → Run workflow** by hand. It builds on a real `windows-latest`
+runner (important — see below) and the finished `Setup.exe` shows up as
+a downloadable build artifact.
+
+**Building it yourself on an actual Windows machine:**
+
+```bash
+npm ci
+npm run dist:win
+```
+
+The installer lands in `dist-electron/`.
+
+Why it has to run natively on Windows (or Windows CI), not be
+cross-built from Mac/Linux: `better-sqlite3` is a native addon, and the
+copy loaded inside the packaged app has to be compiled specifically
+against Electron's own Node ABI *for Windows*. `npm run dist:win`
+handles this automatically (see `scripts/build-electron.mjs`) — it
+builds the isolated rebuild in the OS temp directory, well outside the
+project, specifically so it can never touch your own working
+`node_modules`; it double-checks that with a checksum before finishing
+and refuses to continue if anything unexpected changed.
+
+To customize the desktop build: app name/id/icon are in the `build` key
+of `package.json`; the window itself is `electron/main.js`.
+
 ## Tech stack
 
 Next.js 16 (App Router, Server Functions, Proxy) · TypeScript · Tailwind CSS ·
-shadcn/ui (Base UI) · Prisma 7 · SQLite · Lucide icons.
+shadcn/ui (Base UI) · Prisma 7 · SQLite · Lucide icons · Electron (desktop
+build).
