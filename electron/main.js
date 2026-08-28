@@ -9,7 +9,7 @@
 // Kept as plain CommonJS (no build step of its own) since it's small and
 // runs directly under Electron's bundled Node.
 
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, dialog } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const http = require("node:http");
@@ -17,6 +17,23 @@ const { fork } = require("node:child_process");
 
 const SERVER_PORT = 17321; // uncommon, fixed — good enough for a single-user desktop app
 const isDev = !app.isPackaged;
+
+// A failure here previously meant the app just quit with zero visible
+// feedback — console.error() goes nowhere a packaged GUI app's user can
+// see. Everything now also goes to a log file in userData, and any
+// startup failure shows a real dialog instead of silently exiting.
+const logPath = isDev ? null : path.join(app.getPath("userData"), "app.log");
+function log(...args) {
+  const line = `[${new Date().toISOString()}] ${args.map(String).join(" ")}`;
+  console.log(line);
+  if (logPath) {
+    try {
+      fs.appendFileSync(logPath, line + "\n");
+    } catch {
+      // logging itself failing shouldn't crash startup
+    }
+  }
+}
 
 // Prisma's SQLite `file:` URL is parsed URI-style — a raw Windows path
 // (backslashes + a `C:` drive letter right after the scheme) is
@@ -78,7 +95,13 @@ function waitForServer(port, timeoutMs = 20000) {
 
 function startServer() {
   const serverEntry = resourcePath("standalone", "server.js");
+  log("Resolved server entry:", serverEntry, "exists:", fs.existsSync(serverEntry));
+  if (!fs.existsSync(serverEntry)) {
+    throw new Error(`Bundled server not found at ${serverEntry} — this build is broken.`);
+  }
+
   const dbPath = ensureDatabase();
+  log("Using database:", dbPath);
 
   serverProcess = fork(serverEntry, [], {
     cwd: path.dirname(serverEntry),
@@ -90,16 +113,34 @@ function startServer() {
       NODE_ENV: "production",
       DATABASE_URL: toFileUrl(dbPath),
     },
-    stdio: isDev ? "inherit" : "ignore",
+    // Piped (not "ignore") in production too, so a server-side crash
+    // ends up in the log file instead of vanishing — this was the main
+    // reason a failed launch used to look like nothing happened at all.
+    stdio: isDev ? "inherit" : ["ignore", "pipe", "pipe", "ipc"],
   });
 
-  serverProcess.on("exit", (code) => {
-    if (code && code !== 0 && mainWindow) {
-      console.error(`Server process exited unexpectedly (code ${code}).`);
+  if (!isDev) {
+    serverProcess.stdout?.on("data", (d) => log("[server]", d.toString().trim()));
+    serverProcess.stderr?.on("data", (d) => log("[server:err]", d.toString().trim()));
+  }
+
+  let serverExited = false;
+  serverProcess.on("exit", (code, signal) => {
+    serverExited = true;
+    log(`Server process exited (code ${code}, signal ${signal}).`);
+  });
+  serverProcess.on("error", (err) => {
+    log("Server process failed to spawn:", err.stack || err.message);
+  });
+
+  return waitForServer(SERVER_PORT).catch((err) => {
+    if (serverExited) {
+      throw new Error(
+        `The app's server exited before it was ready. See the log for details: ${logPath ?? "(dev mode — check this terminal)"}`
+      );
     }
+    throw err;
   });
-
-  return waitForServer(SERVER_PORT);
 }
 
 function createWindow() {
@@ -131,17 +172,30 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   try {
+    log("Starting up. isPackaged:", app.isPackaged, "resourcesPath:", process.resourcesPath);
     await startServer();
     createWindow();
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("Failed to start the app server:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    log("STARTUP FAILED:", message);
+    dialog.showErrorBox(
+      "Project Control Tower failed to start",
+      `${message}\n\n${logPath ? `A log file was saved to:\n${logPath}\n\nPlease share it if you report this.` : ""}`
+    );
     app.quit();
   }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+});
+
+process.on("uncaughtException", (err) => {
+  log("UNCAUGHT EXCEPTION:", err.stack || err.message);
+  dialog.showErrorBox(
+    "Project Control Tower crashed",
+    `${err.message}\n\n${logPath ? `A log file was saved to:\n${logPath}` : ""}`
+  );
 });
 
 app.on("window-all-closed", () => {
