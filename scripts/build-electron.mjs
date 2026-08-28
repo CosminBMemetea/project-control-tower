@@ -19,6 +19,26 @@
 //
 // Run via `npm run dist:win` (chains this + electron-builder). Node 20+,
 // no extra dependencies beyond what's already in package.json.
+//
+// After this script, package.json's "build.extraResources" copies
+// .next/standalone into the packaged app. That config has an entry
+// that looks redundant — `.next/standalone/node_modules` listed a
+// second time as its own separate copy, with itself as the root:
+//
+//   { "from": ".next/standalone", "to": "standalone" },
+//   { "from": ".next/standalone/node_modules", "to": "standalone/node_modules" },
+//
+// It's required, not redundant. electron-builder's own file-copy filter
+// (app-builder-lib/util/filter.js) hardcodes `if (relative === "node_modules") return false`
+// for every files/extraResources/extraFiles entry, with no way to
+// override it via a filter pattern — so a plain copy of `.next/standalone`
+// silently drops its own node_modules every time, which is exactly what
+// caused a real install to fail with "Cannot find module 'next'" despite
+// the build itself succeeding. Giving node_modules its own entry with
+// itself as the copy root sidesteps the check (nothing inside it is
+// ever *named* "node_modules" again) — verified by
+// scripts/verify-electron-package.mjs, which fails the build loudly if
+// this ever regresses.
 
 import { execFileSync } from "node:child_process";
 import {
