@@ -3,6 +3,7 @@ import {
   formatMonthYear,
   formatWeekdayMonthDay,
   isMondayOrThursday,
+  weeksAgo,
 } from "@/lib/period";
 
 // One human label per report, combining its type and date. Falls back to
@@ -31,4 +32,34 @@ export function reportLabel(
 // flow had.
 export function isOffCadenceWeekly(type: string, reportDate: Date): boolean {
   return type === "WEEKLY" && !isMondayOrThursday(reportDate);
+}
+
+export type WeeklyReportState = "CURRENT" | "STALE" | "MISSING";
+
+// Boils a project's latest Weekly Status report down to a single state
+// for the portfolio-wide view: submitted this week, submitted but not
+// this week, or never submitted at all.
+export function weeklyReportState(
+  latestWeekly: { reportDate: Date } | null | undefined,
+  now: Date = new Date()
+): WeeklyReportState {
+  if (!latestWeekly) return "MISSING";
+  return weeksAgo(latestWeekly.reportDate, now) === 0 ? "CURRENT" : "STALE";
+}
+
+// Report template sections are user-editable free text (Report Template
+// page) rather than a fixed enum, so "the Highlights section" has to be
+// found by label rather than a stable id. Matches case/whitespace
+// loosely since a section might be renamed to "Highlights " or
+// "highlights" without that being meant as a different section.
+export function findSectionContent(
+  report: { sections: { content: string | null; section: { label: string } }[] } | null | undefined,
+  label: string
+): string | null {
+  if (!report) return null;
+  const target = label.trim().toLowerCase();
+  const entry = report.sections.find(
+    (e) => e.section.label.trim().toLowerCase() === target
+  );
+  return entry?.content?.trim() || null;
 }

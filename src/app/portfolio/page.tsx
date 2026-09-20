@@ -1,5 +1,13 @@
 import Link from "next/link";
-import { FolderKanban, AlertOctagon, ShieldAlert, Radar, Users } from "lucide-react";
+import {
+  FolderKanban,
+  AlertOctagon,
+  ShieldAlert,
+  Radar,
+  Users,
+  CalendarClock,
+  ArrowRight,
+} from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import {
   GOAL_TYPES,
@@ -14,11 +22,13 @@ import {
   HEALTH_DIMENSION_LABELS,
   HEALTH_WEAK_THRESHOLD,
   EXECUTIVE_APPROVAL_LABEL,
+  type RagStatus,
 } from "@/lib/constants";
-import { currentQuarter } from "@/lib/period";
+import { currentQuarter, formatWeekdayMonthDay } from "@/lib/period";
 import { computeMeetingStatus } from "@/lib/meeting-status";
 import { computeChecklistStatus } from "@/lib/checklist-status";
 import { computeHealthStats } from "@/lib/health";
+import { weeklyReportState, findSectionContent } from "@/lib/report-helpers";
 import { GoalBadge } from "@/components/goal-badge";
 import { RagBadge } from "@/components/rag-badge";
 import { RadarChart } from "@/components/radar-chart";
@@ -35,6 +45,12 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default async function PortfolioPage() {
   const projects = await prisma.project.findMany({
@@ -46,6 +62,12 @@ export default async function PortfolioPage() {
       checklistSubmissions: true,
       risks: true,
       healthScores: true,
+      reports: {
+        where: { type: "WEEKLY" },
+        orderBy: { reportDate: "desc" },
+        take: 1,
+        include: { sections: { include: { section: true } } },
+      },
     },
     orderBy: { name: "asc" },
   });
@@ -136,11 +158,44 @@ export default async function PortfolioPage() {
     .sort((a, b) => a.stats.average - b.stats.average); // most out of shape first
 
   const redCount = projects.filter((p) => p.ragStatus === "RED").length;
+  const amberCount = projects.filter((p) => p.ragStatus === "AMBER").length;
   const totalOpenRisks = riskSummary.reduce((sum, r) => sum + r.open, 0);
   const totalHighSeverityRisks = riskSummary.reduce((sum, r) => sum + r.highSeverity, 0);
   const outOfShapeCount = healthSummary.filter(
     ({ stats }) => stats.spread >= 3 || healthTier(stats.average) === "CRITICAL"
   ).length;
+
+  // Weekly Status at a glance: worst RAG first, and within the same RAG,
+  // whoever hasn't reported this week yet first — this is the order an
+  // exec skimming the portfolio actually wants to read it in.
+  const RAG_SEVERITY: Record<RagStatus, number> = { RED: 0, AMBER: 1, GREEN: 2 };
+  const WEEKLY_SEVERITY = { MISSING: 0, STALE: 1, CURRENT: 2 } as const;
+  const weeklyStatus = projects
+    .map((project) => {
+      const latestWeekly = project.reports[0] ?? null;
+      return {
+        project,
+        latestWeekly,
+        state: weeklyReportState(latestWeekly),
+      };
+    })
+    .sort((a, b) => {
+      const ragDiff =
+        RAG_SEVERITY[(a.project.ragStatus as RagStatus) ?? "GREEN"] -
+        RAG_SEVERITY[(b.project.ragStatus as RagStatus) ?? "GREEN"];
+      if (ragDiff !== 0) return ragDiff;
+      return WEEKLY_SEVERITY[a.state] - WEEKLY_SEVERITY[b.state];
+    });
+  const weeklyMissingCount = weeklyStatus.filter((w) => w.state !== "CURRENT").length;
+
+  // Same worst-first order as the status table, so the two cards read
+  // top-to-bottom as one continuous story.
+  const updatesFeed = weeklyStatus.map(({ project, latestWeekly }) => ({
+    project,
+    latestWeekly,
+    highlights: findSectionContent(latestWeekly, "Highlights"),
+    lowlights: findSectionContent(latestWeekly, "Lowlights"),
+  }));
 
   return (
     <div className="space-y-8">
@@ -164,13 +219,26 @@ export default async function PortfolioPage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard icon={FolderKanban} label="Projects" value={projects.length} />
         <StatCard
           icon={AlertOctagon}
           label="Red RAG"
           value={redCount}
           tone={redCount > 0 ? "critical" : "good"}
+        />
+        <StatCard
+          icon={AlertOctagon}
+          label="Amber RAG"
+          value={amberCount}
+          tone={amberCount > 0 ? "watch" : "good"}
+        />
+        <StatCard
+          icon={CalendarClock}
+          label="Weekly report due"
+          value={weeklyMissingCount}
+          sub="not submitted this week"
+          tone={weeklyMissingCount > 0 ? "watch" : "good"}
         />
         <StatCard
           icon={ShieldAlert}
@@ -187,6 +255,175 @@ export default async function PortfolioPage() {
         />
         <StatCard icon={Users} label="Total FTE" value={totalFte} />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Weekly Portfolio Status</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            RAG health and this week&apos;s reporting cadence for every
+            project, worst first — the fastest read on the portfolio.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Project</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">RAG</TableHead>
+                  <TableHead>RAG comment</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">
+                    This week&apos;s report
+                  </TableHead>
+                  <TableHead className="text-right">Latest weekly report</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {weeklyStatus.map(({ project, latestWeekly, state }) => (
+                  <TableRow key={project.id}>
+                    <TableCell className="font-medium whitespace-nowrap">
+                      <Link
+                        href={`/projects/${project.code}`}
+                        className="hover:underline"
+                      >
+                        {project.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <RagBadge status={project.ragStatus} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <span className="block max-w-72 whitespace-normal break-words">
+                        {project.ragComment || "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {state === "CURRENT" ? (
+                        <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                          Submitted
+                        </Badge>
+                      ) : state === "STALE" ? (
+                        <Badge variant="outline">Not this week</Badge>
+                      ) : (
+                        <Badge variant="destructive">Never submitted</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      {latestWeekly ? (
+                        <Link
+                          href={`/projects/${project.code}/reporting/${latestWeekly.id}`}
+                          className="hover:underline"
+                        >
+                          {formatWeekdayMonthDay(latestWeekly.reportDate)}
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/projects/${project.code}/reporting`}
+                          className="text-muted-foreground hover:underline"
+                        >
+                          Create one
+                        </Link>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            Latest Highlights &amp; Lowlights
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Pulled straight from each project&apos;s most recent Weekly
+            Status report — click a project to open the full report.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <TooltipProvider delay={200}>
+            <div className="divide-y">
+              {updatesFeed.map(({ project, latestWeekly, highlights, lowlights }) => (
+                <div
+                  key={project.id}
+                  className="grid grid-cols-1 md:grid-cols-[12rem_1fr_1fr] gap-4 py-3 first:pt-0 last:pb-0"
+                >
+                  <div className="min-w-0 space-y-1.5">
+                    <Link
+                      href={
+                        latestWeekly
+                          ? `/projects/${project.code}/reporting/${latestWeekly.id}`
+                          : `/projects/${project.code}/reporting`
+                      }
+                      className="font-medium hover:underline block truncate"
+                    >
+                      {project.name}
+                    </Link>
+                    <div>
+                      <RagBadge status={project.ragStatus} />
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {latestWeekly
+                        ? formatWeekdayMonthDay(latestWeekly.reportDate)
+                        : "no report yet"}
+                    </div>
+                    {latestWeekly && (
+                      <Link
+                        href={`/projects/${project.code}/reporting/${latestWeekly.id}`}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                      >
+                        See full report
+                        <ArrowRight className="size-3" />
+                      </Link>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-0.5">
+                      Highlights
+                    </div>
+                    {highlights ? (
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <p className="text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap break-words cursor-default text-left" />
+                          }
+                        >
+                          {highlights}
+                        </TooltipTrigger>
+                        <TooltipContent>{highlights}</TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">—</p>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-0.5">
+                      Lowlights
+                    </div>
+                    {lowlights ? (
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <p className="text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap break-words cursor-default text-left" />
+                          }
+                        >
+                          {lowlights}
+                        </TooltipTrigger>
+                        <TooltipContent>{lowlights}</TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">—</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </TooltipProvider>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

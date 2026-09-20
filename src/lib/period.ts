@@ -22,6 +22,26 @@ export function isMondayOrThursday(date: Date): boolean {
   return day === 1 || day === 4;
 }
 
+// Monday 00:00:00.000 UTC of the week containing `date` — the start of
+// the reporting cadence window used to judge whether a project's latest
+// Weekly Status report is current. UTC throughout (matches how report
+// dates are stored/compared) rather than the server's local timezone.
+export function startOfWeek(date: Date = new Date()): Date {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay(); // 0 = Sunday .. 6 = Saturday
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  d.setUTCDate(d.getUTCDate() - diffToMonday);
+  return d;
+}
+
+// How many full weeks ago `date` falls relative to the current week —
+// 0 = this week, 1 = last week, etc. Used to label a stale weekly report
+// ("last week") instead of just a flat "missing".
+export function weeksAgo(date: Date, now: Date = new Date()): number {
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  return Math.floor((startOfWeek(now).getTime() - startOfWeek(date).getTime()) / msPerWeek);
+}
+
 export function toDateInputValue(date: Date): string {
   return date.toISOString().slice(0, 10);
 }

@@ -41,6 +41,7 @@ export type ActionResult = { error: string } | { info: string } | void;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const QUARTER_RE = /^\d{4}-Q[1-4]$/;
+const PROJECT_CODE_RE = /^[A-Z0-9][A-Z0-9_-]{0,31}$/;
 
 function isRiskLevel(v: string): v is RiskLevel {
   return (RISK_LEVELS as readonly string[]).includes(v);
@@ -108,6 +109,40 @@ export async function setProjectName(
     data: { name: trimmed },
   });
   revalidateProject(code);
+}
+
+// Renames the short code (ALPHA, DELTA, ...) used in every project URL.
+// Unlike setProjectName, the caller has to navigate to the new URL
+// itself afterwards — this action only updates the database and
+// revalidates both the old and new paths, since the page that called it
+// is about to become a 404 either way.
+export async function setProjectCode(
+  projectId: string,
+  oldCode: string,
+  newCode: string
+): Promise<ActionResult> {
+  await requireAuth();
+  const normalized = newCode.trim().toUpperCase();
+  if (normalized === oldCode) return;
+  if (!PROJECT_CODE_RE.test(normalized)) {
+    return {
+      error:
+        "Code must be 1-32 characters: letters, numbers, - or _, starting with a letter or number.",
+    };
+  }
+  const existing = await prisma.project.findUnique({
+    where: { code: normalized },
+    select: { id: true },
+  });
+  if (existing) return { error: `"${normalized}" is already used by another project.` };
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { code: normalized },
+  });
+  revalidateGlobal();
+  revalidatePath(`/projects/${oldCode}`, "layout");
+  revalidatePath(`/projects/${normalized}`, "layout");
 }
 
 // Auto-saved on blur from LinkInput, one field at a time (replaces the

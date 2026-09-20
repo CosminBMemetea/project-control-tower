@@ -5,6 +5,7 @@ import { ProjectTabs } from "@/components/project-tabs";
 import { RagStatusControl } from "@/components/rag-status-control";
 import { FteInput } from "@/components/fte-input";
 import { ProjectNameInput } from "@/components/project-name-input";
+import { ProjectCodeInput } from "@/components/project-code-input";
 import { Badge } from "@/components/ui/badge";
 
 export default async function ProjectLayout({
@@ -41,7 +42,7 @@ export default async function ProjectLayout({
           />
         </div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-muted-foreground">
-          <span>{project.code}</span>
+          <ProjectCodeInput projectId={project.id} code={project.code} />
           <span className="flex items-center gap-1.5">
             Allocated FTE
             <FteInput
