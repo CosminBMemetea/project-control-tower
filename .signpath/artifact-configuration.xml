@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SignPath artifact configuration for the Windows installer. Paste this into
+  the SignPath project (Artifact configurations → default); it's kept here
+  so changes to it are reviewed like any other build configuration.
+
+  The GitHub Actions artifact is a ZIP holding exactly one installer. Its
+  product name must be "Project Control Tower" and its product version must
+  match the release version, which CI passes as the `version` parameter.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file path="Project-Control-Tower-Setup-*.exe" product-name="Project Control Tower" product-version="${version}">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

@@ -16,6 +16,10 @@ name: Build Windows installer
 # also publishes a GitHub Release with the installer attached and that
 # version's section of CHANGELOG.md as its notes. The tag must match
 # package.json's version, so a release can't ship under the wrong number.
+#
+# Code signing goes through SignPath (see CODE_SIGNING.md) once the
+# SIGNPATH_ORGANIZATION_ID repository variable and SIGNPATH_API_TOKEN
+# secret exist; until then builds are unsigned, with a warning.
 on:
   workflow_dispatch:
   push:
@@ -34,16 +38,21 @@ jobs:
     runs-on: windows-2022
     permissions:
       contents: write # only used by the Release step, which runs on tags only
+      actions: read # lets SignPath fetch the unsigned installer from this run
     steps:
       - uses: actions/checkout@v4
+
+      - name: Read the version
+        id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Check the tag matches package.json
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
-          version=$(node -p "require('./package.json').version")
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json version $version"
+          if [ "v${{ steps.version.outputs.version }}" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json version ${{ steps.version.outputs.version }}"
             exit 1
           fi
 
@@ -58,13 +67,71 @@ jobs:
         run: npm run dist:win
 
       - name: Upload installer artifact
+        id: unsigned
         uses: actions/upload-artifact@v4
         with:
           name: Project-Control-Tower-Setup
           path: dist-electron/*.exe
           if-no-files-found: error
 
-      - name: Extract this version's release notes from CHANGELOG.md
+      # Tags use the release-signing policy, which waits for an approver in
+      # SignPath (hence the long timeout); every other build uses
+      # test-signing, so the pipeline is exercised before a release needs it.
+      - name: Sign the installer with SignPath
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'project-control-tower' }}
+          signing-policy-slug: ${{ startsWith(github.ref, 'refs/tags/v') && 'release-signing' || 'test-signing' }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          parameters: |
+            version: "${{ steps.version.outputs.version }}"
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist-signed
+
+      - name: Check the signature
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: pwsh
+        run: |
+          $release = "${{ github.ref }}".StartsWith("refs/tags/v")
+          foreach ($file in Get-ChildItem dist-signed -Filter *.exe) {
+            $sig = Get-AuthenticodeSignature $file.FullName
+            Write-Host "$($file.Name): $($sig.Status) | signer: $($sig.SignerCertificate.Subject) | timestamped: $($null -ne $sig.TimeStamperCertificate)"
+            # A release must be trusted by Windows and timestamped, so the
+            # signature stays valid after the certificate itself expires.
+            if ($release -and ($sig.Status -ne "Valid" -or $sig.SignerCertificate.Subject -notmatch "SignPath Foundation" -or $null -eq $sig.TimeStamperCertificate)) {
+              Write-Error "$($file.Name) isn't validly signed and timestamped by SignPath Foundation"
+              exit 1
+            }
+          }
+
+      - name: Collect release files and checksums
+        id: files
+        shell: bash
+        run: |
+          mkdir -p release
+          if compgen -G "dist-signed/*.exe" > /dev/null; then
+            cp dist-signed/*.exe release/
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            cp dist-electron/*.exe release/
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::The installer is not code-signed: SignPath isn't configured yet (see CODE_SIGNING.md)."
+          fi
+          (cd release && sha256sum *.exe > SHA256SUMS.txt)
+          cat release/SHA256SUMS.txt
+
+      - name: Upload signed installer artifact
+        if: steps.files.outputs.signed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Project-Control-Tower-Setup-signed
+          path: release/
+          if-no-files-found: error
+
+      - name: Write the release notes
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
         run: |
@@ -78,6 +145,24 @@ jobs:
             echo "::error::No '## [$version]' section in CHANGELOG.md"
             exit 1
           fi
+          installer=$(cd release && ls *.exe)
+          sha=$(cut -d' ' -f1 release/SHA256SUMS.txt)
+          policy="${{ github.server_url }}/${{ github.repository }}/blob/main/CODE_SIGNING.md"
+          {
+            echo
+            echo "### Download"
+            echo
+            echo "Run \`$installer\` and choose **Only for me** — no administrator rights needed. Installing over an earlier version keeps your data."
+            echo
+            echo "SHA-256: \`$sha\` (compare with \`Get-FileHash .\\$installer\` in PowerShell)."
+            echo
+            if [ "${{ steps.files.outputs.signed }}" = "true" ]; then
+              echo "[Code signing policy]($policy): free code signing provided by SignPath.io, certificate by SignPath Foundation."
+            else
+              echo "This installer is not code-signed yet, so Windows SmartScreen asks you to confirm it (More info → Run anyway). [Code signing policy]($policy)"
+            fi
+          } >> release-notes.md
+          cat release-notes.md | tail -8
 
       - name: Publish the GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -85,5 +170,7 @@ jobs:
         with:
           name: Project Control Tower ${{ github.ref_name }}
           body_path: release-notes.md
-          files: dist-electron/*.exe
+          files: |
+            release/*.exe
+            release/SHA256SUMS.txt
           fail_on_unmatched_files: true

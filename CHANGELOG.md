@@ -3,6 +3,16 @@
 All notable changes to Project Control Tower. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+- **Open source** under the [MIT licence](LICENSE).
+- **Code-signed Windows installer** — free code signing provided by
+  SignPath.io, certificate by SignPath Foundation, so Windows shows a
+  verified publisher. See the [code signing policy](CODE_SIGNING.md).
+- Every release lists the installer's SHA-256 and attaches
+  `SHA256SUMS.txt`, and its notes say how to install it for the current
+  user only.
+
 ## [1.0.0] — 2026-11-03
 
 The first official release. Projects, approvers and question sets are now

@@ -4,6 +4,7 @@
   "description": "Portfolio governance and reporting for project teams",
   "author": "Cosmin Memetea",
   "homepage": "https://github.com/CosminBMemetea/project-control-tower",
+  "license": "MIT",
   "version": "1.0.0",
   "private": true,
   "main": "electron/main.js",
