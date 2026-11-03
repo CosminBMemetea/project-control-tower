@@ -12,12 +12,14 @@ below.
 
 ## Download
 
-**Windows:** get `Project-Control-Tower-Setup-<version>.exe` from the
+**Windows:** get `Project-Control-Tower-Setup-<version>.zip` from the
 [latest release](https://github.com/CosminBMemetea/project-control-tower/releases/latest),
-run it and choose **Only for me** — no administrator rights needed. The app
-runs fully offline ([Offline & privacy](#offline--privacy)), and installing
-a new version over an old one keeps your data. Each release lists the
-installer's SHA-256 so you can check your download.
+extract it and follow `HOW TO INSTALL.txt` inside: check the installer's
+SHA-256, unblock it, run it and choose **Only for me** — no administrator
+rights needed. (The installer comes zipped until code signing is in place;
+signed releases ship the `.exe` directly.) The app runs fully offline
+([Offline & privacy](#offline--privacy)), and installing a new version over
+an old one keeps your data.
 
 To uninstall: Windows Settings → Apps → Installed apps → Project Control
 Tower. Your data stays in `%APPDATA%\Project Control Tower` (or

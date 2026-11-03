@@ -13,7 +13,9 @@ personal machine — and goes to SignPath straight from that build. A release
 is signed only after an approver has reviewed and approved the signing
 request.
 
-Releases before signing was set up (1.0.0) are unsigned.
+Releases made before signing was set up (1.0.0, 1.0.1) are unsigned. Until
+signing is in place, the installer ships inside a ZIP with install notes
+and its SHA-256; signed releases ship the `.exe` directly.
 
 ## Team roles
 

@@ -107,6 +107,9 @@ jobs:
             }
           }
 
+      # A signed installer ships as-is. Until signing is in place, it ships
+      # inside a ZIP with install notes (checksum, how to unblock it): mail
+      # and download filters often refuse a bare unsigned .exe.
       - name: Collect release files and checksums
         id: files
         shell: bash
@@ -114,20 +117,33 @@ jobs:
           mkdir -p release
           if compgen -G "dist-signed/*.exe" > /dev/null; then
             cp dist-signed/*.exe release/
+            (cd release && sha256sum *.exe > SHA256SUMS.txt)
             echo "signed=true" >> "$GITHUB_OUTPUT"
           else
-            cp dist-electron/*.exe release/
+            echo "::warning::The installer is not code-signed: SignPath isn't configured yet (see CODE_SIGNING.md). Shipping it inside a ZIP."
+            version="${{ steps.version.outputs.version }}"
+            mkdir -p zip-staging
+            cp dist-electron/*.exe zip-staging/
+            exe=$(cd zip-staging && ls *.exe)
+            sha=$(sha256sum "zip-staging/$exe" | cut -d' ' -f1)
+            sed -e "s/{{VERSION}}/$version/g" -e "s/{{EXE}}/$exe/g" -e "s/{{SHA256}}/$sha/g" \
+              .github/zip-install-notes.txt > "zip-staging/HOW TO INSTALL.txt"
+            zip="Project-Control-Tower-Setup-$version.zip"
+            pwsh -NoProfile -Command "Compress-Archive -Path 'zip-staging/*' -DestinationPath 'release/$zip'"
+            # Prove the ZIP round-trips: same installer, notes included.
+            pwsh -NoProfile -Command "Expand-Archive 'release/$zip' -DestinationPath zip-check"
+            [ "$(sha256sum "zip-check/$exe" | cut -d' ' -f1)" = "$sha" ] || { echo "::error::Installer inside the ZIP differs"; exit 1; }
+            grep -q "$sha" "zip-check/HOW TO INSTALL.txt" || { echo "::error::Install notes missing the checksum"; exit 1; }
+            (cd release && sha256sum "$zip" > SHA256SUMS.txt)
+            echo "$sha  $exe (inside the ZIP)" >> release/SHA256SUMS.txt
             echo "signed=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::The installer is not code-signed: SignPath isn't configured yet (see CODE_SIGNING.md)."
           fi
-          (cd release && sha256sum *.exe > SHA256SUMS.txt)
           cat release/SHA256SUMS.txt
 
-      - name: Upload signed installer artifact
-        if: steps.files.outputs.signed == 'true'
+      - name: Upload release files artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Project-Control-Tower-Setup-signed
+          name: Project-Control-Tower-release-files
           path: release/
           if-no-files-found: error
 
@@ -145,21 +161,25 @@ jobs:
             echo "::error::No '## [$version]' section in CHANGELOG.md"
             exit 1
           fi
-          installer=$(cd release && ls *.exe)
-          sha=$(cut -d' ' -f1 release/SHA256SUMS.txt)
+          file=$(cd release && { compgen -G "*.zip" || compgen -G "*.exe"; })
+          sha=$(head -1 release/SHA256SUMS.txt | cut -d' ' -f1)
           policy="${{ github.server_url }}/${{ github.repository }}/blob/main/CODE_SIGNING.md"
           {
             echo
             echo "### Download"
             echo
-            echo "Run \`$installer\` and choose **Only for me** — no administrator rights needed. Installing over an earlier version keeps your data."
-            echo
-            echo "SHA-256: \`$sha\` (compare with \`Get-FileHash .\\$installer\` in PowerShell)."
-            echo
             if [ "${{ steps.files.outputs.signed }}" = "true" ]; then
+              echo "Run \`$file\` and choose **Only for me** — no administrator rights needed. Installing over an earlier version keeps your data."
+              echo
+              echo "SHA-256: \`$sha\` (compare with \`Get-FileHash .\\$file\` in PowerShell)."
+              echo
               echo "[Code signing policy]($policy): free code signing provided by SignPath.io, certificate by SignPath Foundation."
             else
-              echo "This installer is not code-signed yet, so Windows SmartScreen asks you to confirm it (More info → Run anyway). [Code signing policy]($policy)"
+              echo "Download \`$file\` and extract it, then follow **HOW TO INSTALL.txt** inside: check the installer's SHA-256, unblock it, run it and choose **Only for me** — no administrator rights needed. Installing over an earlier version keeps your data."
+              echo
+              echo "SHA-256 of the ZIP: \`$sha\` (compare with \`Get-FileHash .\\$file\` in PowerShell); \`SHA256SUMS.txt\` also lists the installer inside."
+              echo
+              echo "The installer isn't code-signed yet, which is why it comes zipped — Windows SmartScreen doesn't recognise unsigned apps. [Code signing policy]($policy)"
             fi
           } >> release-notes.md
           cat release-notes.md | tail -8
@@ -170,7 +190,5 @@ jobs:
         with:
           name: Project Control Tower ${{ github.ref_name }}
           body_path: release-notes.md
-          files: |
-            release/*.exe
-            release/SHA256SUMS.txt
+          files: release/*
           fail_on_unmatched_files: true
