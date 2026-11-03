@@ -5,7 +5,7 @@
   "author": "Cosmin Memetea",
   "homepage": "https://github.com/CosminBMemetea/project-control-tower",
   "license": "MIT",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "main": "electron/main.js",
   "scripts": {

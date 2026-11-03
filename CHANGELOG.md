@@ -3,15 +3,17 @@
 All notable changes to Project Control Tower. Versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.1] — 2026-11-03
 
 - **Open source** under the [MIT licence](LICENSE).
-- **Code-signed Windows installer** — free code signing provided by
-  SignPath.io, certificate by SignPath Foundation, so Windows shows a
-  verified publisher. See the [code signing policy](CODE_SIGNING.md).
-- Every release lists the installer's SHA-256 and attaches
-  `SHA256SUMS.txt`, and its notes say how to install it for the current
-  user only.
+- **The Windows installer comes in a ZIP** until code signing is in place,
+  with `HOW TO INSTALL.txt` inside: how to check the installer's SHA-256,
+  unblock it so Windows doesn't stop it, and install it for your user only
+  (no administrator rights).
+- Every release lists SHA-256 checksums and attaches `SHA256SUMS.txt`.
+- Code signing through SignPath Foundation is prepared and switches on once
+  the project is approved — see the [code signing policy](CODE_SIGNING.md).
+  No changes to the app itself.
 
 ## [1.0.0] — 2026-11-03
 
@@ -95,4 +97,5 @@ managed entirely in the app — no config files or seed runs needed.
 0.1.0 – 0.1.3 were internal builds; see the
 [tags](https://github.com/CosminBMemetea/project-control-tower/tags).
 
+[1.0.1]: https://github.com/CosminBMemetea/project-control-tower/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/CosminBMemetea/project-control-tower/compare/v0.1.3...v1.0.0
