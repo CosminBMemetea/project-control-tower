@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { GOAL_SHORT_LABELS } from "@/lib/constants";
 import {
   Settings2,
   Radar,
@@ -16,16 +17,18 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+// Goal-track tabs take their names from config/goals.ts so renaming a
+// track there renames its tab too.
 const TABS: { slug: string; label: string; icon: LucideIcon }[] = [
-  { slug: "environment", label: "Environment & Rules", icon: Settings2 },
+  { slug: "environment", label: GOAL_SHORT_LABELS.ENVIRONMENT_SETUP, icon: Settings2 },
   { slug: "health", label: "Health", icon: Radar },
-  { slug: "planning", label: "Planning & Tracking", icon: ClipboardList },
-  { slug: "meetings", label: "Meetings & Cadence", icon: CalendarDays },
+  { slug: "planning", label: GOAL_SHORT_LABELS.PLANNING_TRACKING, icon: ClipboardList },
+  { slug: "meetings", label: GOAL_SHORT_LABELS.MEETING_CADENCE, icon: CalendarDays },
   { slug: "risks", label: "Risk Register", icon: ShieldAlert },
-  { slug: "reporting", label: "Reporting", icon: FileText },
-  { slug: "checklist", label: "Checklist", icon: ListChecks },
+  { slug: "reporting", label: GOAL_SHORT_LABELS.PERIODIC_REPORTING, icon: FileText },
+  { slug: "checklist", label: GOAL_SHORT_LABELS.REPORTING_CHECKLIST, icon: ListChecks },
   { slug: "monitoring", label: "Monitoring", icon: Activity },
-  { slug: "compliance", label: "Execution / Compliance", icon: ClipboardCheck },
+  { slug: "compliance", label: GOAL_SHORT_LABELS.EXECUTION_ASSURANCE, icon: ClipboardCheck },
 ];
 
 export function ProjectTabs({ code }: { code: string }) {

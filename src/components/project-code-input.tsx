@@ -34,7 +34,7 @@ export function ProjectCodeInput({
       onSave={handleSave}
       aria-label="Project short code"
       maxLength={32}
-      className="h-6 w-28 border-transparent bg-transparent px-1 -mx-1 py-0 font-mono text-sm uppercase shadow-none hover:border-input focus-visible:bg-background"
+      className="h-6 w-auto min-w-16 max-w-80 field-sizing-content border-transparent bg-transparent px-1 -mx-1 py-0 font-mono text-sm uppercase shadow-none hover:border-input focus-visible:bg-background"
     />
   );
 }

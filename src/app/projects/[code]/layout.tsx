@@ -6,6 +6,10 @@ import { RagStatusControl } from "@/components/rag-status-control";
 import { FteInput } from "@/components/fte-input";
 import { ProjectNameInput } from "@/components/project-name-input";
 import { ProjectCodeInput } from "@/components/project-code-input";
+import { ProjectStatusControl } from "@/components/project-status-control";
+import { ConfirmActionButton } from "@/components/confirm-action-button";
+import { deleteProject } from "@/lib/actions";
+import { PROJECT_STATUS_EMOJI, PROJECT_STATUS_LABELS } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 
 export default async function ProjectLayout({
@@ -32,7 +36,11 @@ export default async function ProjectLayout({
             code={project.code}
             name={project.name}
           />
-          <Badge variant="secondary">{project.status}</Badge>
+          <ProjectStatusControl
+            projectId={project.id}
+            code={project.code}
+            status={project.status}
+          />
           <RagStatusControl
             projectId={project.id}
             code={project.code}
@@ -60,6 +68,16 @@ export default async function ProjectLayout({
               <Badge variant="outline">{project.risks.length} open risk(s)</Badge>
             </Link>
           )}
+          <div className="ml-auto">
+            <ConfirmActionButton
+              action={deleteProject}
+              fields={{ id: project.id, code: project.code }}
+              triggerLabel="Delete project"
+              title={`Delete ${project.name}?`}
+              description={`This permanently removes the project and everything logged against it — reports, risks, meetings, checklist answers, health scores and sign-offs. To keep its history, set the status to ${PROJECT_STATUS_EMOJI.CLOSED} ${PROJECT_STATUS_LABELS.CLOSED} or ${PROJECT_STATUS_EMOJI.CANCELLED} ${PROJECT_STATUS_LABELS.CANCELLED} instead.`}
+              confirmLabel="Delete project"
+            />
+          </div>
         </div>
       </div>
       <ProjectTabs code={project.code} />

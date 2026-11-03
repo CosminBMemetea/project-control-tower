@@ -35,7 +35,7 @@ export function StatCard({
           <div className={cn("text-xl font-semibold tabular-nums leading-none", TONE_CLASSES[tone])}>
             {value}
           </div>
-          <div className="text-xs text-muted-foreground truncate mt-1">
+          <div className="text-xs leading-snug text-muted-foreground mt-1">
             {label}
             {sub ? ` · ${sub}` : ""}
           </div>

@@ -20,7 +20,7 @@ export function ProjectNameInput({
       value={name}
       onSave={(next) => setProjectName(projectId, code, next)}
       aria-label="Project name"
-      className="h-auto w-auto min-w-40 border-transparent bg-transparent px-1 -mx-1 py-0 text-2xl font-semibold tracking-tight shadow-none hover:border-input focus-visible:bg-background"
+      className="h-auto w-auto min-w-40 max-w-full field-sizing-content border-transparent bg-transparent px-1 -mx-1 py-0 text-2xl md:text-2xl font-semibold tracking-tight shadow-none hover:border-input focus-visible:bg-background"
     />
   );
 }

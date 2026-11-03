@@ -1,10 +1,10 @@
-import { REPORT_TYPE_LABELS, type ReportType } from "@/lib/constants";
 import {
-  formatMonthYear,
-  formatWeekdayMonthDay,
-  isMondayOrThursday,
-  weeksAgo,
-} from "@/lib/period";
+  REPORT_TYPE_LABELS,
+  WEEKDAYS,
+  WEEKLY_REPORT_DAYS,
+  type ReportType,
+} from "@/lib/constants";
+import { formatMonthYear, formatWeekdayMonthDay, weeksAgo } from "@/lib/period";
 
 // One human label per report, combining its type and date. Falls back to
 // the custom title when there is one (mainly for CUSTOM reports).
@@ -27,11 +27,13 @@ export function reportLabel(
   }
 }
 
-// A "Weekly Status" report is expected on a Monday or Thursday — flags
-// it when it isn't, same soft-validation nicety the old status-report
-// flow had.
+// A "Weekly Status" report is expected on one of WEEKLY_REPORT_DAYS —
+// flags it when it isn't, same soft-validation nicety the old
+// status-report flow had. UTC, matching how report dates are stored.
 export function isOffCadenceWeekly(type: string, reportDate: Date): boolean {
-  return type === "WEEKLY" && !isMondayOrThursday(reportDate);
+  if (type !== "WEEKLY") return false;
+  const weekday = WEEKDAYS[(reportDate.getUTCDay() + 6) % 7]; // WEEKDAYS starts on Monday
+  return !WEEKLY_REPORT_DAYS.includes(weekday);
 }
 
 export type WeeklyReportState = "CURRENT" | "STALE" | "MISSING";

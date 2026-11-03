@@ -15,13 +15,6 @@ export function currentReportingPeriod(date: Date = new Date()): string {
   return `${currentMonth(date)}-${isFirstHalfOfMonth(date) ? "mid" : "end"}`;
 }
 
-// Weekly status reports are expected every Monday (1) and Thursday (4) —
-// used to flag a "Weekly Status" report dated for some other weekday.
-export function isMondayOrThursday(date: Date): boolean {
-  const day = date.getUTCDay();
-  return day === 1 || day === 4;
-}
-
 // Monday 00:00:00.000 UTC of the week containing `date` — the start of
 // the reporting cadence window used to judge whether a project's latest
 // Weekly Status report is current. UTC throughout (matches how report

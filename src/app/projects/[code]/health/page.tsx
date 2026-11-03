@@ -1,6 +1,15 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { HEALTH_DIMENSIONS, HEALTH_DIMENSION_LABELS, HEALTH_TIER_COLORS, healthTier } from "@/lib/constants";
+import {
+  HEALTH_DIMENSIONS,
+  HEALTH_DIMENSION_LABELS,
+  HEALTH_SCORE_LABELS,
+  HEALTH_SCORE_MIN,
+  HEALTH_SCORE_MAX,
+  HEALTH_TIER_COLORS,
+  HEALTH_UNBALANCED_SPREAD,
+  healthTier,
+} from "@/lib/constants";
 import { computeHealthStats } from "@/lib/health";
 import { RadarChart } from "@/components/radar-chart";
 import { HealthDimensionRow } from "@/components/health-dimension-row";
@@ -37,12 +46,12 @@ export default async function HealthPage({
               HEALTH_TIER_COLORS[tier]
             )}
           >
-            Average {stats.average.toFixed(1)} / 5
+            Average {stats.average.toFixed(1)} / {HEALTH_SCORE_MAX}
           </span>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-3">
           <RadarChart scores={stats.values} size={320} />
-          {stats.spread >= 3 && (
+          {stats.spread >= HEALTH_UNBALANCED_SPREAD && (
             <p className="text-xs text-muted-foreground text-center max-w-sm">
               Unbalanced — {HEALTH_DIMENSION_LABELS[stats.minDimension]} ({stats.min}) is well
               below the other dimensions. A wide spread is often a bigger problem than a low
@@ -56,8 +65,9 @@ export default async function HealthPage({
         <CardHeader>
           <CardTitle className="text-base">Scores & Notes</CardTitle>
           <p className="text-xs text-muted-foreground">
-            1 = Critical, 5 = Excellent. Update any dimension any time — each saves
-            independently.
+            {HEALTH_SCORE_MIN} = {HEALTH_SCORE_LABELS[HEALTH_SCORE_MIN]},{" "}
+            {HEALTH_SCORE_MAX} = {HEALTH_SCORE_LABELS[HEALTH_SCORE_MAX]}. Update any
+            dimension any time — each saves independently.
           </p>
         </CardHeader>
         <CardContent className="space-y-3">

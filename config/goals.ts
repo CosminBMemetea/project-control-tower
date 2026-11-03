@@ -38,10 +38,10 @@ export const GOAL_SHORT_LABELS: Record<GoalType, string> = {
 };
 
 // The optional "stretch" tier above 100% completion — an extra sign-off
-// step for projects with extended scope or investment. Purely cosmetic:
-// rename or reword freely. The numeric level (120) it's tied to in
-// GOAL_LEVELS (src/lib/constants.ts) is what's actually stored on each
-// GoalProgress row, so changing the label here never affects existing data.
+// step for projects with extended scope or investment. The label and
+// description are cosmetic: rename or reword freely. The level is the top
+// entry of GOAL_LEVELS (src/lib/constants.ts) and is what's stored on each
+// GoalProgress row that reached it — don't change it once you have data.
 export const EXECUTIVE_APPROVAL_LEVEL = 120;
 export const EXECUTIVE_APPROVAL_LABEL = "Executive Approval";
 export const EXECUTIVE_APPROVAL_DESCRIPTION =

@@ -38,6 +38,11 @@ check(
   path.join(standaloneDir, "node_modules", "better-sqlite3", "build", "Release", "better_sqlite3.node")
 );
 check("template.db", path.join(unpackedResources, "template.db"));
+check("migrations/ (applied to existing installs at startup)", path.join(unpackedResources, "migrations"));
+check(
+  "standalone/node_modules/better-sqlite3/package.json (loaded by the startup migrator)",
+  path.join(standaloneDir, "node_modules", "better-sqlite3", "package.json")
+);
 
 const nodeModulesDir = path.join(standaloneDir, "node_modules");
 if (existsSync(nodeModulesDir)) {

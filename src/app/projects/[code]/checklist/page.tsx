@@ -4,11 +4,16 @@ import { Send, ExternalLink, Mail, ListChecks } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/period";
 import { sendChecklist } from "@/lib/actions";
-import { CHECKLIST_QUESTIONS, CHECKLIST_VERIFICATION_DAYS } from "@/lib/constants";
+import {
+  CHECKLIST_VERIFICATION_DAYS,
+  DEFAULT_CHECKLIST_QUESTIONS,
+  GOAL_LABELS,
+} from "@/lib/constants";
 import { computeChecklistStatus } from "@/lib/checklist-status";
 import { getAppBaseUrl } from "@/lib/email";
 import { buildMailto } from "@/lib/mailto";
 import { GoalProgressForm } from "@/components/goal-progress-form";
+import { QuestionSetEditor } from "@/components/question-set-editor";
 import { ChecklistStatusBadge } from "@/components/checklist-status-badge";
 import { ActionForm } from "@/components/action-form";
 import { CopyLinkButton } from "@/components/copy-link-button";
@@ -41,7 +46,10 @@ export default async function ChecklistPage({
         goalProgress: { where: { goalType: "REPORTING_CHECKLIST" } },
       },
     }),
-    prisma.checklistQuestion.findMany({ orderBy: { order: "asc" } }),
+    prisma.checklistQuestion.findMany({
+      where: { archived: false },
+      orderBy: { order: "asc" },
+    }),
   ]);
 
   if (!project) notFound();
@@ -58,7 +66,7 @@ export default async function ChecklistPage({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Send Reporting Checklist
+            Send {GOAL_LABELS.REPORTING_CHECKLIST}
           </CardTitle>
           <p className="text-xs text-muted-foreground">
             For any email address — yourself or a team member. Creates a
@@ -69,11 +77,23 @@ export default async function ChecklistPage({
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <ol className="list-decimal list-inside space-y-1.5 text-sm">
-            {questions.map((q) => (
-              <li key={q.id}>{q.text}</li>
-            ))}
-          </ol>
+          {questions.length > 0 ? (
+            <ol className="list-decimal list-inside space-y-1.5 text-sm">
+              {questions.map((q) => (
+                <li key={q.id}>{q.text}</li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No questions yet — add some below before sending.
+            </p>
+          )}
+
+          <QuestionSetEditor
+            set="checklist"
+            questions={questions}
+            defaults={DEFAULT_CHECKLIST_QUESTIONS}
+          />
 
           <ActionForm
             action={sendChecklist}
@@ -150,8 +170,8 @@ export default async function ChecklistPage({
                   const link = `${baseUrl}/checklist-response/${sub.token}`;
                   const mailto = buildMailto({
                     to: sub.recipientEmail,
-                    subject: `Reporting Checklist — ${project.name}`,
-                    body: `Hi,\n\nCould you fill in the Reporting Checklist for ${project.name}?\n\n${link}\n\nIt covers ${CHECKLIST_QUESTIONS.length} short questions on status, risks, and dependencies — should take a few minutes.\n\nThanks!`,
+                    subject: `${GOAL_LABELS.REPORTING_CHECKLIST} — ${project.name}`,
+                    body: `Hi,\n\nCould you fill in the ${GOAL_LABELS.REPORTING_CHECKLIST} for ${project.name}?\n\n${link}\n\nIt covers ${questions.length} short questions on status, risks, and dependencies — should take a few minutes.\n\nThanks!`,
                   });
                   return (
                     <TableRow key={sub.id}>

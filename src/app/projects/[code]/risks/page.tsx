@@ -5,8 +5,11 @@ import { addRisk, deleteRisk } from "@/lib/actions";
 import {
   RISK_LEVELS,
   RISK_LEVEL_LABELS,
+  RISK_STATUSES,
   isHighSeverity,
+  type RiskStatus,
 } from "@/lib/constants";
+import { toDateInputValue } from "@/lib/period";
 import { RiskEditor } from "@/components/risk-editor";
 import { ActionForm } from "@/components/action-form";
 import { EmptyState } from "@/components/empty-state";
@@ -20,10 +23,6 @@ import { Separator } from "@/components/ui/separator";
 
 const SELECT_CLASS =
   "h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm shadow-xs disabled:opacity-50";
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 export default async function RisksPage({
   params,
@@ -42,15 +41,10 @@ export default async function RisksPage({
 
   // `status` sorts alphabetically in the DB (CLOSED, MITIGATING, OPEN),
   // which would bury the actionable risks below resolved ones — reorder
-  // so Open/Mitigating always lead and Closed sinks to the bottom.
-  const STATUS_ORDER: Record<string, number> = {
-    OPEN: 0,
-    MITIGATING: 1,
-    CLOSED: 2,
-  };
-  project.risks.sort(
-    (a, b) => (STATUS_ORDER[a.status] ?? 0) - (STATUS_ORDER[b.status] ?? 0)
-  );
+  // by RISK_STATUSES so Open/Mitigating always lead and Closed sinks.
+  const statusOrder = (s: string) =>
+    Math.max(RISK_STATUSES.indexOf(s as RiskStatus), 0);
+  project.risks.sort((a, b) => statusOrder(a.status) - statusOrder(b.status));
 
   const openRisks = project.risks.filter((r) => r.status !== "CLOSED");
   const highSeverity = openRisks.filter(isHighSeverity);
@@ -155,7 +149,7 @@ export default async function RisksPage({
                 <Input
                   type="date"
                   name="identifiedAt"
-                  defaultValue={todayStr()}
+                  defaultValue={toDateInputValue(new Date())}
                 />
               </div>
             </div>

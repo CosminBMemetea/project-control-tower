@@ -9,7 +9,8 @@
 //      though this app never uses next/image (saves ~17MB and one less
 //      native module to worry about cross-platform).
 //   4. Builds a fresh, pre-migrated, pre-seeded SQLite template database
-//      from prisma/schema.prisma + config/projects.ts + config/approvers.ts
+//      from prisma/schema.prisma (+ any starting roster in config/projects.ts
+//      and config/approvers.ts)
 //      — this is what a first launch on a new machine copies into the
 //      user's per-user app-data folder. It is NOT your dev.db; it's
 //      built from scratch every time so it never leaks local test data.

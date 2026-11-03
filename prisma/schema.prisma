@@ -15,7 +15,7 @@ model Project {
   id     String @id @default(cuid())
   name   String
   code   String @unique
-  status String @default("ACTIVE")
+  status String @default("ACTIVE") // INITIATING | PLANNING | ACTIVE (shown as "Ongoing") | ON_HOLD | CLOSING | CLOSED | CANCELLED — see PROJECT_STATUSES
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -107,7 +107,18 @@ model TeamsMeeting {
   lastOccurredAt DateTime?
 }
 
-// Executive Approval (the "120%" stretch tier) — see config/goals.ts
+// The roster of people who sign off on the Executive Approval tier —
+// managed on the Approvals page. Every project gets one ManagerApproval
+// row per approver, matched by name (renaming an approver renames those
+// rows too). config/approvers.ts only seeds an empty roster.
+model Approver {
+  id   String @id @default(cuid())
+  name String @unique
+
+  createdAt DateTime @default(now())
+}
+
+// Executive Approval (the stretch tier) — see config/goals.ts
 model ManagerApproval {
   id String @id @default(cuid())
 
@@ -136,11 +147,15 @@ model GoalProgress {
   @@unique([projectId, goalType])
 }
 
-// The 10 Reporting Checklist questions, stored once, shared across projects
+// The Reporting Checklist questions, stored once, shared across projects
+// and edited from any project's Checklist tab. A removed question is
+// archived rather than deleted, so answers already given keep the
+// question they were answering.
 model ChecklistQuestion {
-  id    String @id @default(cuid())
-  order Int    @unique
-  text  String
+  id       String  @id @default(cuid())
+  order    Int     @unique
+  text     String
+  archived Boolean @default(false)
 
   answers ChecklistAnswer[]
 }
@@ -178,8 +193,9 @@ model ChecklistAnswer {
   @@unique([submissionId, questionId])
 }
 
-// The 10 Monitoring questions, stored once, shared across projects — simple
-// per-project checkboxes, never emailed.
+// The Monitoring questions, stored once, shared across projects and edited
+// from any project's Monitoring tab — simple per-project checkboxes, never
+// emailed. Removing a question deletes its checkboxes too.
 model MonitoringQuestion {
   id    String @id @default(cuid())
   order Int    @unique

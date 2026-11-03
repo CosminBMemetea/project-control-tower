@@ -8,8 +8,9 @@ import {
   GOAL_LABELS,
   REPORT_TYPES,
   REPORT_TYPE_LABELS,
-  EXECUTIVE_APPROVAL_LEVEL,
   EXECUTIVE_APPROVAL_LABEL,
+  WEEKLY_REPORT_DAYS,
+  WEEKDAY_LABELS,
 } from "@/lib/constants";
 import { reportLabel, isOffCadenceWeekly } from "@/lib/report-helpers";
 import { createReport, deleteReport } from "@/lib/actions";
@@ -72,7 +73,8 @@ export default async function ReportingPage({
           <CardTitle className="text-base">New Report</CardTitle>
           <p className="text-xs text-muted-foreground">
             Reports can be created for any past date — mid/end-month, weekly
-            status (Monday &amp; Thursday), or a custom one-off.
+            status ({WEEKLY_REPORT_DAYS.map((d) => WEEKDAY_LABELS[d]).join(" & ")}),
+            or a custom one-off.
           </p>
         </CardHeader>
         <CardContent>
@@ -224,10 +226,10 @@ export default async function ReportingPage({
 
           <div>
             <div className="font-medium mb-1">
-              {EXECUTIVE_APPROVAL_LEVEL}% {EXECUTIVE_APPROVAL_LABEL} approvals
+              {EXECUTIVE_APPROVAL_LABEL}
             </div>
             <p className="text-muted-foreground">
-              {approvalsDone}/{project.managerApprovals.length} managers approved
+              {approvalsDone}/{project.managerApprovals.length} approvers signed off
             </p>
           </div>
 

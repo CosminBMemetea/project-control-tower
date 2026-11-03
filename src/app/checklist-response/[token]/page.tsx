@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/period";
+import { GOAL_LABELS } from "@/lib/constants";
 import { submitChecklistResponse } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +22,16 @@ export default async function ChecklistResponsePage({
   });
   if (!submission) notFound();
 
+  // The live questions, plus any since-retired one this submission already
+  // answered — so a respondent revisiting their link still sees (and can
+  // update) everything they wrote.
   const questions = await prisma.checklistQuestion.findMany({
+    where: {
+      OR: [
+        { archived: false },
+        { id: { in: submission.answers.map((a) => a.questionId) } },
+      ],
+    },
     orderBy: { order: "asc" },
   });
   const answerByQuestion = new Map(
@@ -32,7 +42,7 @@ export default async function ChecklistResponsePage({
     <div className="mx-auto max-w-2xl px-6 py-10 space-y-6">
       <div>
         <div className="text-xs text-muted-foreground uppercase tracking-wide">
-          Reporting Checklist
+          {GOAL_LABELS.REPORTING_CHECKLIST}
         </div>
         <h1 className="text-2xl font-semibold tracking-tight mt-1">
           {submission.project.name}
@@ -50,11 +60,11 @@ export default async function ChecklistResponsePage({
 
       <ActionForm action={submitChecklistResponse} className="space-y-4">
         <input type="hidden" name="token" value={token} />
-        {questions.map((q) => (
+        {questions.map((q, i) => (
           <Card key={q.id}>
             <CardHeader>
               <CardTitle className="text-sm font-medium">
-                {q.order}. {q.text}
+                {i + 1}. {q.text}
               </CardTitle>
             </CardHeader>
             <CardContent>

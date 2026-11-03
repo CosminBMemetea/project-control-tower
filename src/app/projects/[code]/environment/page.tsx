@@ -1,9 +1,9 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import {
   PROJECT_LINK_FIELDS,
   STRUCTURE_HIERARCHY_ITEMS,
-  EXECUTIVE_APPROVAL_LEVEL,
   EXECUTIVE_APPROVAL_LABEL,
   EXECUTIVE_APPROVAL_DESCRIPTION,
 } from "@/lib/constants";
@@ -65,15 +65,9 @@ export default async function EnvironmentPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">
-            Structure Hierarchy (visible in the UI)
-          </CardTitle>
+          <CardTitle className="text-base">Structure Hierarchy</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-xs text-muted-foreground mb-3">
-            Epics → per year · User Stories → per quarter · Tasks → per
-            sprint · 4 Sprints per Quarter, each with a Sprint Goal
-          </p>
           <div className="space-y-3">
             {STRUCTURE_HIERARCHY_ITEMS.map((item) => (
               <label
@@ -98,17 +92,28 @@ export default async function EnvironmentPage({
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">
-            {EXECUTIVE_APPROVAL_LEVEL}% — {EXECUTIVE_APPROVAL_LABEL}
-          </CardTitle>
+          <CardTitle className="text-base">{EXECUTIVE_APPROVAL_LABEL}</CardTitle>
           <Badge variant={allApproved ? "default" : "outline"}>
-            {allApproved ? "Fully approved" : "Pending approval"}
+            {project.managerApprovals.length === 0
+              ? "No approvers"
+              : allApproved
+                ? "Fully approved"
+                : "Pending approval"}
           </Badge>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">
             {EXECUTIVE_APPROVAL_DESCRIPTION}.
           </p>
+          {project.managerApprovals.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No approvers set up yet —{" "}
+              <Link href="/approvals" className="underline hover:text-foreground">
+                add them on the Approvals page
+              </Link>
+              .
+            </p>
+          )}
           {project.managerApprovals.map((approval) => (
             <ManagerApprovalRow
               key={approval.id}

@@ -5,9 +5,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/require-auth";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@/generated/prisma/client";
 import { sendEmail, getAppBaseUrl } from "@/lib/email";
 import {
-  CHECKLIST_QUESTIONS,
+  QUESTION_SETS,
+  MAX_QUESTIONS,
+  MAX_QUESTION_LENGTH,
   PROJECT_LINK_FIELDS,
   STRUCTURE_HIERARCHY_ITEMS,
   MAX_ALLOCATED_FTE,
@@ -18,13 +21,16 @@ import {
   HEALTH_SCORES,
   HEALTH_DEFAULT_SCORE,
   GOAL_TYPES,
+  GOAL_LABELS,
   GOAL_LEVELS,
   REPORT_TYPES,
+  PROJECT_STATUSES,
   type GoalType,
   type RagStatus,
   type RiskLevel,
   type RiskStatus,
   type HealthDimension,
+  type QuestionSet,
 } from "@/lib/constants";
 
 function str(formData: FormData, key: string): string {
@@ -42,6 +48,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const QUARTER_RE = /^\d{4}-Q[1-4]$/;
 const PROJECT_CODE_RE = /^[A-Z0-9][A-Z0-9_-]{0,31}$/;
+const PROJECT_CODE_HINT =
+  "Code must be 1-32 characters: letters, numbers, - or _, starting with a letter or number.";
 
 function isRiskLevel(v: string): v is RiskLevel {
   return (RISK_LEVELS as readonly string[]).includes(v);
@@ -65,10 +73,11 @@ function revalidateProject(code: string) {
   revalidatePath(`/projects/${code}`, "layout");
 }
 
-// Template changes affect every project's reporting tab, not just one —
-// the bracketed pattern revalidates every route matching that dynamic
-// segment without needing to know all project codes up front.
-function revalidateAllProjectReportingTabs() {
+// For changes that show up on every project's pages (report template,
+// approver roster) — the bracketed pattern revalidates every route
+// matching that dynamic segment without needing to know all project
+// codes up front.
+function revalidateEveryProject() {
   revalidateGlobal();
   revalidatePath("/projects/[code]", "layout");
 }
@@ -90,6 +99,81 @@ function recurrenceData(formData: FormData) {
 // server timezone.
 function parseDateInput(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
+}
+
+// "Data Platform 2" → "DATA-PLATFORM-2", for a New project form left
+// without a code.
+function codeFromName(name: string): string {
+  return name
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .slice(0, 32)
+    .replace(/^-+|-+$/g, "");
+}
+
+// Creates a project together with every per-project row the rest of the
+// app expects to exist already — a GoalProgress per goal track, a health
+// score per dimension, a sign-off row per approver (the same set
+// prisma/seed.ts creates) — then opens it.
+export async function createProject(formData: FormData): Promise<ActionResult> {
+  await requireAuth();
+  const name = str(formData, "name");
+  const typedCode = str(formData, "code").toUpperCase();
+  const status = str(formData, "status");
+  if (!name) return { error: "Project name is required." };
+
+  const code = typedCode || codeFromName(name);
+  if (!PROJECT_CODE_RE.test(code)) {
+    return {
+      error: typedCode
+        ? PROJECT_CODE_HINT
+        : "Couldn't make a code from that name — enter one.",
+    };
+  }
+  if (!(PROJECT_STATUSES as readonly string[]).includes(status)) {
+    return { error: "Invalid project status." };
+  }
+  const existing = await prisma.project.findUnique({
+    where: { code },
+    select: { id: true },
+  });
+  if (existing) return { error: `"${code}" is already used by another project.` };
+
+  const approvers = await prisma.approver.findMany();
+  await prisma.project.create({
+    data: {
+      name,
+      code,
+      status,
+      goalProgress: {
+        create: GOAL_TYPES.map((goalType) => ({ goalType, level: 0 })),
+      },
+      healthScores: {
+        create: HEALTH_DIMENSIONS.map((dimension) => ({
+          dimension,
+          score: HEALTH_DEFAULT_SCORE,
+        })),
+      },
+      managerApprovals: {
+        create: approvers.map((a) => ({ managerName: a.name })),
+      },
+    },
+  });
+  revalidateGlobal();
+  redirect(`/projects/${code}`);
+}
+
+// Cascades to everything the project owns (reports, risks, meetings,
+// checklist submissions, ...). The confirm dialog says so, and points to
+// Closed / Cancelled for keeping the history instead.
+export async function deleteProject(formData: FormData) {
+  await requireAuth();
+  const id = str(formData, "id");
+  const code = str(formData, "code");
+  await prisma.project.delete({ where: { id } });
+  revalidateGlobal();
+  revalidatePath(`/projects/${code}`, "layout");
+  redirect("/projects");
 }
 
 // Auto-saved on blur / debounced change from the project name field in
@@ -125,10 +209,7 @@ export async function setProjectCode(
   const normalized = newCode.trim().toUpperCase();
   if (normalized === oldCode) return;
   if (!PROJECT_CODE_RE.test(normalized)) {
-    return {
-      error:
-        "Code must be 1-32 characters: letters, numbers, - or _, starting with a letter or number.",
-    };
+    return { error: PROJECT_CODE_HINT };
   }
   const existing = await prisma.project.findUnique({
     where: { code: normalized },
@@ -143,6 +224,26 @@ export async function setProjectCode(
   revalidateGlobal();
   revalidatePath(`/projects/${oldCode}`, "layout");
   revalidatePath(`/projects/${normalized}`, "layout");
+}
+
+// Auto-saved the moment the lifecycle dropdown in the project header
+// changes. An unknown value is rejected rather than defaulted — unlike
+// setRagStatus there's no safe fallback, since silently landing on
+// ACTIVE would re-open a closed project.
+export async function setProjectStatus(
+  projectId: string,
+  code: string,
+  status: string
+): Promise<ActionResult> {
+  await requireAuth();
+  if (!(PROJECT_STATUSES as readonly string[]).includes(status)) {
+    return { error: "Invalid project status." };
+  }
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { status },
+  });
+  revalidateProject(code);
 }
 
 // Auto-saved on blur from LinkInput, one field at a time (replaces the
@@ -179,6 +280,72 @@ export async function setStructureHierarchyField(
     data: { [field]: value },
   });
   revalidateProject(code);
+}
+
+// --- Approver roster (Approvals page) ---
+
+// Adds the approver to the roster and gives every project — whatever its
+// status — a sign-off row for them, keeping "one row per approver per
+// project" true everywhere.
+export async function addApprover(formData: FormData): Promise<ActionResult> {
+  await requireAuth();
+  const name = str(formData, "name");
+  if (!name) return { error: "Approver name is required." };
+  const existing = await prisma.approver.findUnique({ where: { name } });
+  if (existing) return { error: `${name} is already an approver.` };
+
+  const projects = await prisma.project.findMany({ select: { id: true } });
+  await prisma.$transaction([
+    prisma.approver.create({ data: { name } }),
+    ...projects.map((p) =>
+      prisma.managerApproval.create({
+        data: { projectId: p.id, managerName: name },
+      })
+    ),
+  ]);
+  revalidatePath("/approvals");
+  revalidateEveryProject();
+}
+
+// Auto-saved on blur / debounced change. Sign-off rows are matched by
+// name, so they're renamed in the same transaction — otherwise every
+// existing approval would be orphaned under the old name.
+export async function renameApprover(
+  id: string,
+  name: string
+): Promise<ActionResult> {
+  await requireAuth();
+  const trimmed = name.trim();
+  if (!trimmed) return { error: "Approver name can't be empty." };
+  const approver = await prisma.approver.findUniqueOrThrow({ where: { id } });
+  if (trimmed === approver.name) return;
+  const clash = await prisma.approver.findUnique({ where: { name: trimmed } });
+  if (clash) return { error: `${trimmed} is already an approver.` };
+
+  await prisma.$transaction([
+    prisma.approver.update({ where: { id }, data: { name: trimmed } }),
+    prisma.managerApproval.updateMany({
+      where: { managerName: approver.name },
+      data: { managerName: trimmed },
+    }),
+  ]);
+  revalidatePath("/approvals");
+  revalidateEveryProject();
+}
+
+// Removes the approver along with their sign-off (and comment) on every
+// project — the confirm dialog spells that out.
+export async function removeApprover(formData: FormData) {
+  await requireAuth();
+  const id = str(formData, "id");
+  const approver = await prisma.approver.findUnique({ where: { id } });
+  if (!approver) return;
+  await prisma.$transaction([
+    prisma.managerApproval.deleteMany({ where: { managerName: approver.name } }),
+    prisma.approver.delete({ where: { id } }),
+  ]);
+  revalidatePath("/approvals");
+  revalidateEveryProject();
 }
 
 // Auto-saved from the approval checkbox itself, independent of the
@@ -434,6 +601,13 @@ export async function sendChecklist(formData: FormData): Promise<ActionResult> {
     return { error: "That doesn't look like a valid email address." };
   }
 
+  const questionCount = await prisma.checklistQuestion.count({
+    where: { archived: false },
+  });
+  if (questionCount === 0) {
+    return { error: "Add at least one checklist question first." };
+  }
+
   const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
   const token = randomBytes(24).toString("hex");
 
@@ -452,11 +626,11 @@ export async function sendChecklist(formData: FormData): Promise<ActionResult> {
   const link = `${await getAppBaseUrl()}/checklist-response/${token}`;
   const result = await sendEmail({
     to: recipientEmail,
-    subject: `Reporting Checklist — ${project.name}`,
+    subject: `${GOAL_LABELS.REPORTING_CHECKLIST} — ${project.name}`,
     html: `
-      <p>You've been asked to complete the Reporting Checklist for <strong>${project.name}</strong>.</p>
+      <p>You've been asked to complete the ${GOAL_LABELS.REPORTING_CHECKLIST} for <strong>${project.name}</strong>.</p>
       <p><a href="${link}">${link}</a></p>
-      <p>It covers ${CHECKLIST_QUESTIONS.length} short questions on status, risks, and dependencies — should take a few minutes.</p>
+      <p>It covers ${questionCount} short questions on status, risks, and dependencies — should take a few minutes.</p>
     `,
   });
 
@@ -642,6 +816,212 @@ export async function deleteReport(formData: FormData) {
   redirect(`/projects/${code}/reporting`);
 }
 
+// --- Question sets (edited from any project's Checklist / Monitoring tab) ---
+
+type StoredQuestion = { id: string; order: number; text: string; archived: boolean };
+
+type QuestionStore = {
+  all: () => Promise<StoredQuestion[]>;
+  create: (text: string, order: number) => Prisma.PrismaPromise<unknown>;
+  update: (
+    id: string,
+    data: { text?: string; order?: number }
+  ) => Prisma.PrismaPromise<unknown>;
+  // Checklist: archive (moving it to `order` if given). Monitoring: delete.
+  retire: (id: string, order?: number) => Prisma.PrismaPromise<unknown>;
+};
+
+// The two question tables share a shape (id / order / text) but not a
+// Prisma delegate type, so each gets the same small adapter. The real
+// difference is removal: a checklist question that's been answered can't
+// be deleted (its answers point at it), so it's archived — answers keep
+// the question they were answering. Monitoring questions only carry
+// current checkboxes, so they're simply deleted.
+const questionStores: Record<QuestionSet, QuestionStore> = {
+  checklist: {
+    all: (): Promise<StoredQuestion[]> =>
+      prisma.checklistQuestion.findMany({ orderBy: { order: "asc" } }),
+    create: (text: string, order: number) =>
+      prisma.checklistQuestion.create({ data: { text, order } }),
+    update: (id: string, data: { text?: string; order?: number }) =>
+      prisma.checklistQuestion.update({ where: { id }, data }),
+    retire: (id: string, order?: number) =>
+      prisma.checklistQuestion.update({
+        where: { id },
+        data: { archived: true, order },
+      }),
+  },
+  monitoring: {
+    all: async (): Promise<StoredQuestion[]> =>
+      (await prisma.monitoringQuestion.findMany({ orderBy: { order: "asc" } })).map(
+        (q) => ({ ...q, archived: false })
+      ),
+    create: (text: string, order: number) =>
+      prisma.monitoringQuestion.create({ data: { text, order } }),
+    update: (id: string, data: { text?: string; order?: number }) =>
+      prisma.monitoringQuestion.update({ where: { id }, data }),
+    retire: (id: string) => prisma.monitoringQuestion.delete({ where: { id } }),
+  },
+};
+
+function isQuestionSet(v: string): v is QuestionSet {
+  return (QUESTION_SETS as readonly string[]).includes(v);
+}
+
+function questionTextError(text: string): string | null {
+  if (!text) return "A question can't be empty.";
+  if (text.length > MAX_QUESTION_LENGTH) {
+    return `Keep each question under ${MAX_QUESTION_LENGTH} characters.`;
+  }
+  return null;
+}
+
+// Pasted lists often come numbered or bulleted ("1. ...", "- ...") or as
+// a one-column CSV ("...") — strip that so only the question remains.
+function cleanQuestionLine(line: string): string {
+  let text = line.trim().replace(/^(?:\d+[.)]|[-*•])\s+/, "");
+  if (text.length >= 2 && text.startsWith('"') && text.endsWith('"')) {
+    text = text.slice(1, -1).replace(/""/g, '"');
+  }
+  return text.trim();
+}
+
+// Questions show on every project's tab and on checklist links already
+// sent, not just the page that edited them.
+function revalidateQuestionSets() {
+  revalidateEveryProject();
+  revalidatePath("/checklist-response/[token]", "page");
+}
+
+export async function addQuestion(formData: FormData): Promise<ActionResult> {
+  await requireAuth();
+  const set = str(formData, "set");
+  const text = str(formData, "text");
+  if (!isQuestionSet(set)) return { error: "Unknown question set." };
+  const error = questionTextError(text);
+  if (error) return { error };
+
+  const store = questionStores[set];
+  const all = await store.all();
+  if (all.filter((q) => !q.archived).length >= MAX_QUESTIONS) {
+    return { error: `The limit is ${MAX_QUESTIONS} questions.` };
+  }
+  await store.create(text, Math.max(0, ...all.map((q) => q.order)) + 1);
+  revalidateQuestionSets();
+}
+
+// Auto-saved on blur / debounced change. Rewording keeps the row, so
+// answers and checkboxes already recorded stay attached to it.
+export async function setQuestionText(
+  set: QuestionSet,
+  id: string,
+  text: string
+): Promise<ActionResult> {
+  await requireAuth();
+  if (!isQuestionSet(set)) return { error: "Unknown question set." };
+  const trimmed = text.trim();
+  const error = questionTextError(trimmed);
+  if (error) return { error };
+  await questionStores[set].update(id, { text: trimmed });
+  revalidateQuestionSets();
+}
+
+export async function removeQuestion(formData: FormData) {
+  await requireAuth();
+  const set = str(formData, "set");
+  const id = str(formData, "id");
+  if (!isQuestionSet(set)) return;
+  await questionStores[set].retire(id);
+  revalidateQuestionSets();
+}
+
+export async function moveQuestion(formData: FormData) {
+  await requireAuth();
+  const set = str(formData, "set");
+  const id = str(formData, "id");
+  const direction = str(formData, "direction"); // "up" | "down"
+  if (!isQuestionSet(set)) return;
+
+  const store = questionStores[set];
+  const active = (await store.all()).filter((q) => !q.archived);
+  const index = active.findIndex((q) => q.id === id);
+  const swapWith = direction === "up" ? index - 1 : index + 1;
+  if (index === -1 || swapWith < 0 || swapWith >= active.length) return;
+
+  const a = active[index];
+  const b = active[swapWith];
+  // Same unique-`order` bounce as moveTemplateSection.
+  await prisma.$transaction([
+    store.update(a.id, { order: -1 }),
+    store.update(b.id, { order: a.order }),
+    store.update(a.id, { order: b.order }),
+  ]);
+  revalidateQuestionSets();
+}
+
+// "Edit as a list": the pasted / uploaded list (one question per line)
+// becomes the question set, in that order. A line matching an existing
+// question exactly keeps that row — and every answer or checkbox already
+// recorded against it — so re-uploading the same list changes nothing;
+// questions no longer listed are removed the same way as removeQuestion.
+export async function replaceQuestions(formData: FormData): Promise<ActionResult> {
+  await requireAuth();
+  const set = str(formData, "set");
+  if (!isQuestionSet(set)) return { error: "Unknown question set." };
+  const lines = [
+    ...new Set(
+      String(formData.get("questions") ?? "")
+        .split(/\r?\n/)
+        .map(cleanQuestionLine)
+        .filter(Boolean)
+    ),
+  ];
+  if (lines.length === 0) return { error: "Add at least one question, one per line." };
+  if (lines.length > MAX_QUESTIONS) {
+    return { error: `That's ${lines.length} questions — the limit is ${MAX_QUESTIONS}.` };
+  }
+  const tooLong = lines.find((l) => l.length > MAX_QUESTION_LENGTH);
+  if (tooLong) {
+    return {
+      error: `Keep each question under ${MAX_QUESTION_LENGTH} characters ("${tooLong.slice(0, 40)}…").`,
+    };
+  }
+
+  const store = questionStores[set];
+  const all = await store.all();
+  const active = all.filter((q) => !q.archived);
+  if (lines.length === active.length && lines.every((t, i) => t === active[i].text)) {
+    return { info: "No changes — the questions already match that list." };
+  }
+
+  const unmatched = [...active];
+  const rows = lines.map((text) => {
+    const i = unmatched.findIndex((q) => q.text === text);
+    return { text, id: i === -1 ? null : unmatched.splice(i, 1)[0].id };
+  });
+  const archived = all.filter((q) => q.archived);
+
+  await prisma.$transaction([
+    // Park every row on a negative order first, so the renumbering below
+    // can't collide with `order`'s unique constraint mid-transaction.
+    ...all.map((q, i) => store.update(q.id, { order: -(i + 1) })),
+    ...rows.map((row, i) =>
+      row.id ? store.update(row.id, { order: i + 1 }) : store.create(row.text, i + 1)
+    ),
+    // Archived checklist questions stay in the table, after the live list.
+    ...archived.map((q, i) => store.update(q.id, { order: rows.length + i + 1 })),
+    ...unmatched.map((q, i) =>
+      store.retire(q.id, rows.length + archived.length + i + 1)
+    ),
+  ]);
+  revalidateQuestionSets();
+
+  const kept = rows.filter((r) => r.id).length;
+  return {
+    info: `Saved ${rows.length} questions — ${kept} kept, ${rows.length - kept} added, ${unmatched.length} removed.`,
+  };
+}
+
 // --- Report template management (Report Template settings page) ---
 
 export async function addTemplateSection(
@@ -659,7 +1039,7 @@ export async function addTemplateSection(
     data: { label, hasLinks, order: (last?.order ?? 0) + 1 },
   });
   revalidatePath("/report-template");
-  revalidateAllProjectReportingTabs();
+  revalidateEveryProject();
 }
 
 // Per-field autosave for an existing template section (label on blur,
@@ -685,7 +1065,7 @@ export async function setTemplateSectionField(
     });
   }
   revalidatePath("/report-template");
-  revalidateAllProjectReportingTabs();
+  revalidateEveryProject();
 }
 
 export async function deleteTemplateSection(formData: FormData) {
@@ -693,7 +1073,7 @@ export async function deleteTemplateSection(formData: FormData) {
   const id = str(formData, "id");
   await prisma.reportTemplateSection.delete({ where: { id } });
   revalidatePath("/report-template");
-  revalidateAllProjectReportingTabs();
+  revalidateEveryProject();
 }
 
 export async function moveTemplateSection(formData: FormData) {
@@ -728,7 +1108,7 @@ export async function moveTemplateSection(formData: FormData) {
     }),
   ]);
   revalidatePath("/report-template");
-  revalidateAllProjectReportingTabs();
+  revalidateEveryProject();
 }
 
 export async function addComplianceCheck(

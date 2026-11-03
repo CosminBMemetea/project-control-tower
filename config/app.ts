@@ -14,7 +14,7 @@ export interface AppConfig {
   shortDescription: string;
   /** Optional hex color (e.g. "#2563eb") to theme the app's primary/accent color. */
   primaryColor?: string;
-  /** Optional path or URL to a logo image, shown in the sidebar instead of the generated initial badge. */
+  /** Optional path or URL to a logo image, shown in the sidebar instead of the built-in app icon. */
   logoUrl?: string;
 }
 

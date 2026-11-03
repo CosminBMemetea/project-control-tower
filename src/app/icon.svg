@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#312E81"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <!-- Simplified for 16-32px: no radar arcs or mullions, chunkier shapes. -->
+  <rect width="1024" height="1024" rx="200" fill="url(#bg)"/>
+  <circle cx="512" cy="190" r="86" fill="#FBBF24"/>
+  <path d="M 340 330 H 684 L 632 520 H 392 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="30" stroke-linejoin="round"/>
+  <path d="M 440 520 H 584 L 624 850 H 400 Z" fill="#FFFFFF"/>
+  <rect x="260" y="830" width="504" height="80" rx="40" fill="#FFFFFF"/>
+</svg>

@@ -13,10 +13,25 @@ const { app, BrowserWindow, shell, dialog } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const http = require("node:http");
+const crypto = require("node:crypto");
 const { fork } = require("node:child_process");
 
 const SERVER_PORT = 17321; // uncommon, fixed — good enough for a single-user desktop app
 const isDev = !app.isPackaged;
+
+// Electron derives the per-user data folder from the app name, and the
+// package used to be named "galpapa" — so installs from before the rename
+// keep their database in e.g. %APPDATA%\galpapa. Keep using whichever
+// folder already holds one rather than silently starting a blank database
+// under the new name. Must run before anything reads userData (logPath
+// below included).
+const LEGACY_USER_DATA_DIRS = ["galpapa"];
+if (!isDev && !fs.existsSync(path.join(app.getPath("userData"), "data.db"))) {
+  const legacyDir = LEGACY_USER_DATA_DIRS.map((name) =>
+    path.join(app.getPath("appData"), name)
+  ).find((dir) => fs.existsSync(path.join(dir, "data.db")));
+  if (legacyDir) app.setPath("userData", legacyDir);
+}
 
 // A failure here previously meant the app just quit with zero visible
 // feedback — console.error() goes nowhere a packaged GUI app's user can
@@ -72,7 +87,95 @@ function ensureDatabase() {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     fs.copyFileSync(templatePath, dbPath);
   }
+  applyPendingMigrations(dbPath);
   return dbPath;
+}
+
+// Every launch: apply any migration the user's database hasn't seen yet.
+// The template is only copied on *first* launch, so without this an
+// existing install would never get a schema change shipped in a later
+// version, and the new server code would crash against the old tables.
+// Same bookkeeping as `prisma migrate deploy` (the _prisma_migrations
+// table the template was built with), one transaction per migration —
+// done with the bundled better-sqlite3 since the Prisma CLI isn't shipped.
+function applyPendingMigrations(dbPath) {
+  const migrationsDir = resourcePath("migrations");
+  if (!fs.existsSync(migrationsDir)) {
+    throw new Error(`Bundled migrations not found at ${migrationsDir} — this build is broken.`);
+  }
+  const Database = require(resourcePath("standalone", "node_modules", "better-sqlite3"));
+
+  const db = new Database(dbPath);
+  let backupPath = null;
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
+      "id" TEXT PRIMARY KEY NOT NULL,
+      "checksum" TEXT NOT NULL,
+      "finished_at" DATETIME,
+      "migration_name" TEXT NOT NULL,
+      "logs" TEXT,
+      "rolled_back_at" DATETIME,
+      "started_at" DATETIME NOT NULL DEFAULT current_timestamp,
+      "applied_steps_count" INTEGER UNSIGNED NOT NULL DEFAULT 0
+    )`);
+    const applied = new Set(
+      db
+        .prepare(
+          `SELECT "migration_name" FROM "_prisma_migrations" WHERE "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL`
+        )
+        .all()
+        .map((row) => row.migration_name)
+    );
+    // Folder names are timestamp-prefixed, so lexical order is apply order.
+    const pending = fs
+      .readdirSync(migrationsDir)
+      .filter(
+        (name) =>
+          !applied.has(name) && fs.existsSync(path.join(migrationsDir, name, "migration.sql"))
+      )
+      .sort();
+    if (pending.length === 0) return;
+
+    backupPath = `${dbPath}.before-${pending[0]}.${Date.now()}.bak`; // VACUUM INTO refuses to overwrite
+    db.exec(`VACUUM INTO '${backupPath.replace(/'/g, "''")}'`);
+    log(`Applying ${pending.length} migration(s); backup saved to ${backupPath}`);
+
+    // Foreign keys off for the duration (only takes effect outside a
+    // transaction): SQLite migrations rebuild a table by copy → DROP →
+    // rename, and with enforcement on, dropping a parent table would
+    // cascade-delete every child row.
+    db.pragma("foreign_keys = OFF");
+    for (const name of pending) {
+      const sql = fs.readFileSync(path.join(migrationsDir, name, "migration.sql"), "utf8");
+      const startedAt = Date.now();
+      db.transaction(() => {
+        db.exec(sql);
+        db.prepare(
+          `INSERT INTO "_prisma_migrations" ("id", "checksum", "finished_at", "migration_name", "started_at", "applied_steps_count") VALUES (?, ?, ?, ?, ?, 1)`
+        ).run(
+          crypto.randomUUID(),
+          crypto.createHash("sha256").update(sql).digest("hex"),
+          Date.now(),
+          name,
+          startedAt
+        );
+      })();
+      log("Applied migration:", name);
+    }
+    const violations = db.pragma("foreign_key_check");
+    if (violations.length > 0) {
+      throw new Error(`the upgrade left ${violations.length} broken reference(s)`);
+    }
+    db.pragma("foreign_keys = ON");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Upgrading your database failed: ${message}` +
+        (backupPath ? `\n\nYour data from before the upgrade is saved at:\n${backupPath}` : "")
+    );
+  } finally {
+    db.close();
+  }
 }
 
 function waitForServer(port, timeoutMs = 20000) {

@@ -35,10 +35,11 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Everything except: Next internals, the login/logout routes
-    // themselves (must stay reachable while logged out), and the public
-    // token-secured checklist response link (meant for external
-    // recipients who don't have the app password — see README).
-    "/((?!_next/static|_next/image|favicon.ico|login|logout|checklist-response).*)",
+    // Everything except: Next internals, the app icons (shown on the
+    // login page too), the login/logout routes themselves (must stay
+    // reachable while logged out), and the public token-secured checklist
+    // response link (meant for external recipients who don't have the app
+    // password — see README).
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|apple-icon.png|login|logout|checklist-response).*)",
   ],
 };

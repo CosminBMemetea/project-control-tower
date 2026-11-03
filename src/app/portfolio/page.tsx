@@ -19,9 +19,16 @@ import {
   isHighSeverity,
   healthTier,
   HEALTH_TIER_COLORS,
+  HEALTH_DIMENSIONS,
   HEALTH_DIMENSION_LABELS,
+  HEALTH_SCORE_MIN,
+  HEALTH_SCORE_MAX,
   HEALTH_WEAK_THRESHOLD,
+  HEALTH_UNBALANCED_SPREAD,
+  HIGHLIGHTS_SECTION_LABEL,
+  LOWLIGHTS_SECTION_LABEL,
   EXECUTIVE_APPROVAL_LABEL,
+  TRACKED_PROJECT_STATUSES,
   type RagStatus,
 } from "@/lib/constants";
 import { currentQuarter, formatWeekdayMonthDay } from "@/lib/period";
@@ -33,6 +40,8 @@ import { GoalBadge } from "@/components/goal-badge";
 import { RagBadge } from "@/components/rag-badge";
 import { RadarChart } from "@/components/radar-chart";
 import { StatCard } from "@/components/stat-card";
+import { EmptyState } from "@/components/empty-state";
+import { ProjectStatusSummary } from "@/components/project-status-badge";
 import { cn } from "@/lib/utils";
 import {
   Table,
@@ -53,7 +62,14 @@ import {
 } from "@/components/ui/tooltip";
 
 export default async function PortfolioPage() {
+  // Everything below covers only projects still in flight — on hold,
+  // closed, and cancelled ones are summarized in the header instead.
+  const untracked = await prisma.project.findMany({
+    where: { status: { notIn: TRACKED_PROJECT_STATUSES } },
+    select: { status: true },
+  });
   const projects = await prisma.project.findMany({
+    where: { status: { in: TRACKED_PROJECT_STATUSES } },
     include: {
       goalProgress: true,
       quarterPresentations: true,
@@ -71,6 +87,33 @@ export default async function PortfolioPage() {
     },
     orderBy: { name: "asc" },
   });
+
+  if (projects.length === 0 && untracked.length === 0) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Portfolio Overview
+        </h1>
+        <Card>
+          <CardContent className="pt-6">
+            <EmptyState
+              icon={FolderKanban}
+              title="No projects yet"
+              description={
+                <>
+                  Create one on the{" "}
+                  <Link href="/projects" className="underline">
+                    Projects
+                  </Link>{" "}
+                  page — this overview fills in from there.
+                </>
+              }
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const quarter = currentQuarter();
   const thresholds = GOAL_LEVELS.filter((l) => l > 0); // 25, 50, 75, 100, 120
@@ -110,7 +153,7 @@ export default async function PortfolioPage() {
       issues.push(`${EXECUTIVE_APPROVAL_LABEL} incomplete`);
     }
     if (computeChecklistStatus(p.checklistSubmissions) !== "ACTIVE") {
-      issues.push("Reporting Checklist verification overdue");
+      issues.push(`${GOAL_LABELS.REPORTING_CHECKLIST} verification overdue`);
     }
     const highSeverityRisks = p.risks.filter(
       (r) => r.status !== "CLOSED" && isHighSeverity(r)
@@ -162,7 +205,9 @@ export default async function PortfolioPage() {
   const totalOpenRisks = riskSummary.reduce((sum, r) => sum + r.open, 0);
   const totalHighSeverityRisks = riskSummary.reduce((sum, r) => sum + r.highSeverity, 0);
   const outOfShapeCount = healthSummary.filter(
-    ({ stats }) => stats.spread >= 3 || healthTier(stats.average) === "CRITICAL"
+    ({ stats }) =>
+      stats.spread >= HEALTH_UNBALANCED_SPREAD ||
+      healthTier(stats.average) === "CRITICAL"
   ).length;
 
   // Weekly Status at a glance: worst RAG first, and within the same RAG,
@@ -193,8 +238,8 @@ export default async function PortfolioPage() {
   const updatesFeed = weeklyStatus.map(({ project, latestWeekly }) => ({
     project,
     latestWeekly,
-    highlights: findSectionContent(latestWeekly, "Highlights"),
-    lowlights: findSectionContent(latestWeekly, "Lowlights"),
+    highlights: findSectionContent(latestWeekly, HIGHLIGHTS_SECTION_LABEL),
+    lowlights: findSectionContent(latestWeekly, LOWLIGHTS_SECTION_LABEL),
   }));
 
   return (
@@ -205,9 +250,17 @@ export default async function PortfolioPage() {
             Portfolio Overview
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Coverage across the 6 goal tracks for every project · current
-            period {quarter}
+            Coverage across the {GOAL_TYPES.length} goal tracks for every
+            in-flight project · current period {quarter}
           </p>
+          {untracked.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Not shown:{" "}
+              <Link href="/projects" className="hover:underline">
+                <ProjectStatusSummary projects={untracked} />
+              </Link>
+            </p>
+          )}
         </div>
         <Link href="/portfolio/monthly-summary">
           <Badge
@@ -336,7 +389,7 @@ export default async function PortfolioPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Latest Highlights &amp; Lowlights
+            Latest {HIGHLIGHTS_SECTION_LABEL} &amp; {LOWLIGHTS_SECTION_LABEL}
           </CardTitle>
           <p className="text-xs text-muted-foreground">
             Pulled straight from each project&apos;s most recent Weekly
@@ -382,7 +435,7 @@ export default async function PortfolioPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-0.5">
-                      Highlights
+                      {HIGHLIGHTS_SECTION_LABEL}
                     </div>
                     {highlights ? (
                       <Tooltip>
@@ -401,7 +454,7 @@ export default async function PortfolioPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-0.5">
-                      Lowlights
+                      {LOWLIGHTS_SECTION_LABEL}
                     </div>
                     {lowlights ? (
                       <Tooltip>
@@ -522,9 +575,10 @@ export default async function PortfolioPage() {
         <CardHeader>
           <CardTitle className="text-base">Project Health</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Scope · Schedule · Cost · Risk · Quality · Resources, 1-5 each. A
-            lopsided or small shape means a project is out of shape — weak or
-            unbalanced on one or more dimensions. Sorted worst average first.
+            {HEALTH_DIMENSIONS.map((d) => HEALTH_DIMENSION_LABELS[d]).join(" · ")},{" "}
+            {HEALTH_SCORE_MIN}-{HEALTH_SCORE_MAX} each. A lopsided or small
+            shape means a project is out of shape — weak or unbalanced on one
+            or more dimensions. Sorted worst average first.
           </p>
         </CardHeader>
         <CardContent>
@@ -542,7 +596,7 @@ export default async function PortfolioPage() {
               <TableBody>
                 {healthSummary.map(({ project, stats }) => {
                   const tier = healthTier(stats.average);
-                  const unbalanced = stats.spread >= 3;
+                  const unbalanced = stats.spread >= HEALTH_UNBALANCED_SPREAD;
                   return (
                     <TableRow key={project.id}>
                       <TableCell className="font-medium whitespace-nowrap">

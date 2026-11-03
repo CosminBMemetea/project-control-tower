@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { currentMonth } from "@/lib/period";
+import { isTrackedProjectStatus } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,10 @@ export default async function MonthlySummaryPage({
         return key === month;
       }),
     }))
+    // In-flight projects always count toward coverage; on hold / closed /
+    // cancelled ones only show up if they did report that month (e.g.
+    // viewing a month from before they were closed).
+    .filter((x) => x.report || isTrackedProjectStatus(x.project.status))
     .sort((a, b) => a.project.name.localeCompare(b.project.name));
 
   const covered = withReport.filter((x) => x.report).length;
@@ -77,8 +82,8 @@ export default async function MonthlySummaryPage({
           <span className="text-sm text-muted-foreground">
             Coverage for {month}
           </span>
-          <Badge variant={covered === projects.length ? "default" : "outline"}>
-            {covered}/{projects.length} projects reported
+          <Badge variant={covered === withReport.length ? "default" : "outline"}>
+            {covered}/{withReport.length} projects reported
           </Badge>
         </CardContent>
       </Card>

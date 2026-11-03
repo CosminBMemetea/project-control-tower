@@ -1,12 +1,11 @@
-import { WEEKDAYS, RECURRENCE_LABELS } from "@/lib/constants";
+import {
+  WEEKDAYS,
+  RECURRENCE_LABELS,
+  RECURRENCE_INTERVAL_DAYS,
+  MEETING_GRACE_DAYS,
+} from "@/lib/constants";
 
 export type MeetingStatus = "ACTIVE" | "MISSING" | "NEEDS_UPDATE";
-
-// Single, simple rule for every meeting type: if it hasn't been marked as
-// occurred in the last 14 days (or never), it needs attention. Kept as one
-// flat threshold on purpose — per-type cadence would be more accurate but
-// also more to configure and explain.
-const STALE_AFTER_DAYS = 14;
 
 export const MEETING_STATUS_LABELS: Record<MeetingStatus, string> = {
   ACTIVE: "Active",
@@ -21,14 +20,25 @@ export const MEETING_STATUS_COLORS: Record<MeetingStatus, string> = {
     "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300",
 };
 
+// Stale once a full interval of the meeting's own recurrence plus a grace
+// week has passed with no occurrence logged — so a monthly steering
+// committee isn't flagged two weeks in. No recurrence set (or Custom)
+// counts as weekly: 7 + 7 = the original flat 14-day rule.
 export function computeMeetingStatus(
-  meeting: { lastOccurredAt: Date | null } | null | undefined
+  meeting:
+    | { lastOccurredAt: Date | null; recurrenceType?: string | null }
+    | null
+    | undefined
 ): MeetingStatus {
   if (!meeting) return "MISSING";
   if (!meeting.lastOccurredAt) return "NEEDS_UPDATE";
+  const interval =
+    RECURRENCE_INTERVAL_DAYS[
+      meeting.recurrenceType as keyof typeof RECURRENCE_INTERVAL_DAYS
+    ] ?? RECURRENCE_INTERVAL_DAYS.WEEKLY!;
   const daysSince =
     (Date.now() - meeting.lastOccurredAt.getTime()) / (1000 * 60 * 60 * 24);
-  return daysSince > STALE_AFTER_DAYS ? "NEEDS_UPDATE" : "ACTIVE";
+  return daysSince > interval + MEETING_GRACE_DAYS ? "NEEDS_UPDATE" : "ACTIVE";
 }
 
 // "Weekly", "Every 3 weeks", or the custom free-text label — whatever

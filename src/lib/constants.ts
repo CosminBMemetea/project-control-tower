@@ -19,8 +19,77 @@ export {
 };
 export type { GoalType } from "@config/goals";
 
-export const GOAL_LEVELS = [0, 25, 50, 75, 100, 120] as const;
+// The top level is the Executive Approval stretch tier — tied to
+// config/goals.ts rather than repeated here, so changing it there can't
+// leave the level picker and the Approvals page disagreeing.
+export const GOAL_LEVELS = [0, 25, 50, 75, 100, EXECUTIVE_APPROVAL_LEVEL] as const;
 export type GoalLevel = (typeof GOAL_LEVELS)[number];
+
+// Project lifecycle status — where a project sits in its PMBOK lifecycle,
+// independent of RAG (how healthy it is right now). ACTIVE keeps its
+// original key (it was the only value before this list existed), so
+// existing rows need no data migration; only its label is "Ongoing".
+export const PROJECT_STATUSES = [
+  "INITIATING",
+  "PLANNING",
+  "ACTIVE",
+  "ON_HOLD",
+  "CLOSING",
+  "CLOSED",
+  "CANCELLED",
+] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  INITIATING: "Initiating",
+  PLANNING: "Planning",
+  ACTIVE: "Ongoing",
+  ON_HOLD: "On Hold",
+  CLOSING: "Closing",
+  CLOSED: "Closed",
+  CANCELLED: "Cancelled",
+};
+
+export const PROJECT_STATUS_EMOJI: Record<ProjectStatus, string> = {
+  INITIATING: "💡",
+  PLANNING: "🗺️",
+  ACTIVE: "🚀",
+  ON_HOLD: "⏸️",
+  CLOSING: "🏁",
+  CLOSED: "🧊",
+  CANCELLED: "🛑",
+};
+
+export const PROJECT_STATUS_DESCRIPTIONS: Record<ProjectStatus, string> = {
+  INITIATING: "Charter and key stakeholders being defined",
+  PLANNING: "Scope, schedule and budget being baselined",
+  ACTIVE: "Executing — work under way against the plan",
+  ON_HOLD: "Paused by decision, expected to resume",
+  CLOSING: "Handover, final report and lessons learned",
+  CLOSED: "Formally closed — on the shelf",
+  CANCELLED: "Terminated before completion",
+};
+
+// Statuses still expected to follow the governance cadence (meetings,
+// weekly reports, approvals). On Hold / Closed / Cancelled projects drop
+// out of the Portfolio Overview, Approvals, and Missing Items so they
+// don't nag about reports nobody should be writing.
+export const TRACKED_PROJECT_STATUSES: ProjectStatus[] = [
+  "INITIATING",
+  "PLANNING",
+  "ACTIVE",
+  "CLOSING",
+];
+
+export function toProjectStatus(status: string): ProjectStatus {
+  return (PROJECT_STATUSES as readonly string[]).includes(status)
+    ? (status as ProjectStatus)
+    : "ACTIVE";
+}
+
+export function isTrackedProjectStatus(status: string): boolean {
+  return TRACKED_PROJECT_STATUSES.includes(toProjectStatus(status));
+}
 
 export const MEETING_TYPES = [
   "WEEKLY",
@@ -77,6 +146,22 @@ export const RECURRENCE_LABELS: Record<(typeof RECURRENCE_TYPES)[number], string
   CUSTOM: "Custom",
 };
 
+// Days between occurrences, for judging when a meeting has gone stale.
+// CUSTOM is free text with no interval to read, so it's left out and
+// falls back to weekly (see computeMeetingStatus).
+export const RECURRENCE_INTERVAL_DAYS: Partial<
+  Record<(typeof RECURRENCE_TYPES)[number], number>
+> = {
+  WEEKLY: 7,
+  BIWEEKLY: 14,
+  EVERY_3_WEEKS: 21,
+  MONTHLY: 31,
+};
+
+// How late a meeting can be logged past its interval before it shows
+// as "Needs update".
+export const MEETING_GRACE_DAYS = 7;
+
 export const REPORT_TYPES = ["MID_MONTH", "END_MONTH", "WEEKLY", "CUSTOM"] as const;
 export type ReportType = (typeof REPORT_TYPES)[number];
 
@@ -87,13 +172,34 @@ export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   CUSTOM: "Custom",
 };
 
+// Weekly Status reports are expected on these days — a WEEKLY report
+// dated any other weekday is flagged "off-cadence".
+export const WEEKLY_REPORT_DAYS: (typeof WEEKDAYS)[number][] = ["MONDAY", "THURSDAY"];
+
+// The two report template sections the Portfolio Overview surfaces from
+// each project's latest Weekly Status. Sections are user-editable, so
+// these are matched by label (see findSectionContent) — renaming either
+// section on the Report Template page empties that portfolio column.
+export const HIGHLIGHTS_SECTION_LABEL = "Highlights";
+export const LOWLIGHTS_SECTION_LABEL = "Lowlights";
+
+// Seeded only into an empty database; edit live via the Report Template page.
+export const DEFAULT_REPORT_TEMPLATE = [
+  { label: HIGHLIGHTS_SECTION_LABEL, hasLinks: false },
+  { label: LOWLIGHTS_SECTION_LABEL, hasLinks: false },
+  { label: "Lessons Learned", hasLinks: false },
+  { label: "Requests from the Team", hasLinks: false },
+  { label: "Done This Sprint", hasLinks: true },
+  { label: "Up Next Sprint", hasLinks: false },
+];
+
 export const GOAL_LEVEL_COLORS: Record<number, string> = {
   0: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
   25: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
   50: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
   75: "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300",
   100: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  120: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+  [EXECUTIVE_APPROVAL_LEVEL]: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
 };
 
 // Sanity ceiling for a single project's Allocated FTE — guards against a
@@ -185,6 +291,10 @@ export const HEALTH_SCORE_LABELS: Record<HealthScore, string> = {
 // A dimension at or below this is flagged as a weak spot, portfolio-wide.
 export const HEALTH_WEAK_THRESHOLD = 2;
 
+// A gap this wide between the strongest and weakest dimension flags the
+// project as unbalanced, whatever its average.
+export const HEALTH_UNBALANCED_SPREAD = 3;
+
 // Three-tier read on an average score, reusing the same red/amber/green
 // vocabulary as RAG status for a consistent "at a glance" language.
 export type HealthTier = "GOOD" | "WATCH" | "CRITICAL";
@@ -222,9 +332,21 @@ export const STRUCTURE_HIERARCHY_ITEMS = [
   },
 ] as const;
 
+// The two shared question sets, both edited live from any project's
+// Checklist / Monitoring tab. The DEFAULT_* lists below are only a
+// starting point: seeded into an empty database, and offered behind
+// "Load defaults" in the editor.
+export const QUESTION_SETS = ["checklist", "monitoring"] as const;
+export type QuestionSet = (typeof QUESTION_SETS)[number];
+
+// Sanity limits for a pasted / uploaded list — not a real constraint on
+// how a checklist should look.
+export const MAX_QUESTIONS = 50;
+export const MAX_QUESTION_LENGTH = 500;
+
 // Reporting Checklist — sent by email to a person, answered via a
 // tokenized link, tracked per Project + recipient email + date.
-export const CHECKLIST_QUESTIONS = [
+export const DEFAULT_CHECKLIST_QUESTIONS = [
   "What is delivered today / this week?",
   "What is planned for the next sprint?",
   "What is planned for the next milestone / gate?",
@@ -242,7 +364,7 @@ export const CHECKLIST_QUESTIONS = [
 export const CHECKLIST_VERIFICATION_DAYS = 14;
 
 // Monitoring — simple per-project checkboxes, never emailed.
-export const MONITORING_QUESTIONS = [
+export const DEFAULT_MONITORING_QUESTIONS = [
   "Is the project's Git repository up to date and accessible to all team members?",
   "Is the requirements/backlog tracker link current and reflecting the latest scope?",
   "Has the Way of Working been reviewed by the team in the last quarter?",

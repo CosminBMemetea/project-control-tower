@@ -2,11 +2,12 @@ import "dotenv/config";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "../src/generated/prisma/client";
 import {
-  CHECKLIST_QUESTIONS,
-  MONITORING_QUESTIONS,
+  DEFAULT_CHECKLIST_QUESTIONS,
+  DEFAULT_MONITORING_QUESTIONS,
   GOAL_TYPES,
   HEALTH_DIMENSIONS,
   HEALTH_DEFAULT_SCORE,
+  DEFAULT_REPORT_TEMPLATE,
 } from "../src/lib/constants";
 import { PROJECTS } from "../config/projects";
 import { APPROVERS } from "../config/approvers";
@@ -16,32 +17,26 @@ const adapter = new PrismaBetterSqlite3({
 });
 const prisma = new PrismaClient({ adapter });
 
-const DEFAULT_REPORT_TEMPLATE = [
-  { label: "Highlights", hasLinks: false },
-  { label: "Lowlights", hasLinks: false },
-  { label: "Lessons Learned", hasLinks: false },
-  { label: "Requests from the Team", hasLinks: false },
-  { label: "Done This Sprint", hasLinks: true },
-  { label: "Up Next Sprint", hasLinks: false },
-];
-
 async function main() {
+  // Both question sets are seeded only into an empty table — after that
+  // they're edited in the app (Checklist / Monitoring tabs), and re-running
+  // the seed must not overwrite those edits.
   console.log("Seeding checklist questions...");
-  for (let i = 0; i < CHECKLIST_QUESTIONS.length; i++) {
-    await prisma.checklistQuestion.upsert({
-      where: { order: i + 1 },
-      update: { text: CHECKLIST_QUESTIONS[i] },
-      create: { order: i + 1, text: CHECKLIST_QUESTIONS[i] },
-    });
+  if ((await prisma.checklistQuestion.count()) === 0) {
+    for (let i = 0; i < DEFAULT_CHECKLIST_QUESTIONS.length; i++) {
+      await prisma.checklistQuestion.create({
+        data: { order: i + 1, text: DEFAULT_CHECKLIST_QUESTIONS[i] },
+      });
+    }
   }
 
   console.log("Seeding monitoring questions...");
-  for (let i = 0; i < MONITORING_QUESTIONS.length; i++) {
-    await prisma.monitoringQuestion.upsert({
-      where: { order: i + 1 },
-      update: { text: MONITORING_QUESTIONS[i] },
-      create: { order: i + 1, text: MONITORING_QUESTIONS[i] },
-    });
+  if ((await prisma.monitoringQuestion.count()) === 0) {
+    for (let i = 0; i < DEFAULT_MONITORING_QUESTIONS.length; i++) {
+      await prisma.monitoringQuestion.create({
+        data: { order: i + 1, text: DEFAULT_MONITORING_QUESTIONS[i] },
+      });
+    }
   }
 
   console.log("Seeding report template...");
@@ -53,6 +48,16 @@ async function main() {
       });
     }
   }
+
+  console.log("Seeding approvers...");
+  // Only into an empty roster — after that it's managed on the Approvals
+  // page, and re-running the seed mustn't bring back someone removed there.
+  if ((await prisma.approver.count()) === 0) {
+    for (const name of APPROVERS) {
+      await prisma.approver.create({ data: { name } });
+    }
+  }
+  const approvers = await prisma.approver.findMany();
 
   console.log("Seeding projects...");
   for (const p of PROJECTS) {
@@ -82,7 +87,7 @@ async function main() {
       });
     }
 
-    for (const managerName of APPROVERS) {
+    for (const { name: managerName } of approvers) {
       const existing = await prisma.managerApproval.findFirst({
         where: { projectId: project.id, managerName },
       });

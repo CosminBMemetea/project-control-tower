@@ -13,8 +13,17 @@ below.
 ## Features
 
 - **Portfolio Overview** — goal coverage, RAG status, allocated FTE, open
-  risks, and a Project Health "spider web" radar chart for every project,
-  plus a Missing Items list of what still needs attention.
+  risks, and a Project Health "spider web" radar chart for every in-flight
+  project, plus a Missing Items list of what still needs attention.
+- **Project lifecycle status** — PMBOK-style status per project, set from
+  the project header: 💡 Initiating · 🗺️ Planning · 🚀 Ongoing · ⏸️ On Hold ·
+  🏁 Closing · 🧊 Closed · 🛑 Cancelled. On Hold, Closed and Cancelled
+  projects drop out of the Portfolio Overview, Approvals and Missing Items
+  (still listed, dimmed, on the Projects page). Labels and emoji live in
+  `PROJECT_STATUS_*` in `src/lib/constants.ts`.
+- **Projects** — create projects from the Projects page (name, short code,
+  status) and delete them from the project's own header; no config file
+  or seed run needed.
 - **Per-project tracking** across 6 configurable goal tracks: Environment
   Setup, Planning & Tracking, Meeting Cadence, Reporting Checklist, Periodic
   Reporting, and Execution Assurance — each with an evidence link and a
@@ -24,17 +33,27 @@ below.
 - **Project Health** — 6-dimension (Scope/Schedule/Cost/Risk/Quality/
   Resources) 1–5 scoring rendered as a radar chart, with per-dimension notes.
 - **Meeting Map** — recurring meetings with day/time/recurrence, status
-  (Active/Missing/Needs update), and next-occurrence tracking.
+  (Active/Missing/Needs update — a meeting needs an update once a full
+  interval of its own recurrence plus a week passes unlogged), and
+  next-occurrence tracking.
 - **Reporting** — retroactive, dated reports built from a fully customizable
   template (add/rename/reorder sections with no code changes), plus a
   Monthly Consolidated Summary across the whole portfolio.
-- **Reporting Checklist** — a 10-question checklist sendable to any email
-  address via a tokenized link (no login required to respond); works with
-  zero configuration via Copy Link / mailto, or automatically via SMTP if
+- **Reporting Checklist** — a checklist sendable to any email address via
+  a tokenized link (no login required to respond); works with zero
+  configuration via Copy Link / mailto, or automatically via SMTP if
   configured.
 - **Monitoring** — a simpler, non-emailed set of governance checkboxes per
   project.
-- **Approvals** — a configurable executive/manager sign-off step per project.
+- **Editable question sets** — the Checklist and Monitoring questions are
+  shared by every project and edited from either tab (**Edit questions**):
+  reword, add, remove, or reorder one at a time, or replace the whole set
+  by pasting a list or loading a `.txt` / `.csv` file (one question per
+  line). Removing a checklist question keeps the answers already given to
+  it. Ships with a default set (`DEFAULT_*_QUESTIONS` in
+  `src/lib/constants.ts`), always one click away via **Load defaults**.
+- **Approvals** — an executive sign-off step per project, with the roster
+  of approvers managed right on the Approvals page.
 - **Settings** — app info at a glance, one-click full data export, and
   password-protection status.
 
@@ -116,9 +135,20 @@ APP_PRIMARY_COLOR="#7c3aed"
 APP_LOGO_URL="/logo.svg"
 ```
 
-If no `logoUrl` is set, the sidebar shows a generated badge using the app
-name's first letter instead — there's always something reasonable to look
-at with zero configuration.
+If no `logoUrl` is set, the sidebar shows the built-in Control Tower icon
+instead — there's always something reasonable to look at with zero
+configuration.
+
+### App icon
+
+One icon is used everywhere — browser tab, sidebar, iOS home screen, and
+the Windows app and installer. Its sources are two SVGs in `assets/icon/`
+(`icon.svg` in full detail, `icon-small.svg` simplified for 16–32px). After
+editing either, regenerate every size with:
+
+```bash
+node scripts/build-icons.mjs
+```
 
 ### Goal track names
 
@@ -130,15 +160,17 @@ identifiers stored in the database.
 
 ### Projects & approvers
 
-- **`config/projects.ts`** — the project roster. `prisma/seed.ts` reads this
-  file to create (or update) projects; it never deletes one, so removing an
-  entry here doesn't remove it from an existing database. Ships with
-  placeholder sample projects — replace them with your own.
-- **`config/approvers.ts`** — the list of approvers required to sign off on
-  the Executive Approval tier for every project.
+Both are managed in the app: **Projects → New Project** to add one (delete
+from the project's own header), and **Approvals → Approvers** to add,
+rename, or remove the people who sign off on every project.
 
-After editing either file, run `npm run db:seed` to apply the changes (see
-[Load Projects](#load-projects) below).
+The two config files are optional starting rosters for a fresh database,
+both empty by default:
+
+- **`config/projects.ts`** — projects to create in bulk (see
+  [Load Projects](#load-projects) below).
+- **`config/approvers.ts`** — approvers to start with; only loaded into a
+  database that has none yet.
 
 ## Database
 
@@ -147,23 +179,23 @@ schema lives in `prisma/schema.prisma`.
 
 ### Load Projects
 
-Adding, renaming, or removing entries in `config/projects.ts` or
-`config/approvers.ts` doesn't touch the database by itself — run the seed
-script to apply the change:
+To bulk-load the projects listed in `config/projects.ts` (and the
+approvers in `config/approvers.ts`, if the database has none yet), run the
+seed script:
 
 ```bash
 npm run db:seed
 ```
 
-This is safe to re-run any time: existing projects (matched by `code`) are
-updated in place, new entries are created, and nothing already in the
-database is ever deleted by the seed script.
+This is safe to re-run any time: new entries are created, and existing
+projects (matched by `code`) are left exactly as they are — the seed never
+overwrites a name or link edited in the app, and never deletes anything.
 
 ### Reset Database
 
 To wipe the database back to a clean slate (drops all data, re-applies
-every migration, then re-seeds from `config/projects.ts` /
-`config/approvers.ts`):
+every migration, then re-seeds the default question sets and report
+template, plus anything in `config/projects.ts` / `config/approvers.ts`):
 
 ```bash
 npx prisma migrate reset
@@ -180,7 +212,9 @@ npx prisma migrate dev --name describe_your_change
 ```
 
 For a production deploy, use `npx prisma migrate deploy` instead (applies
-existing migrations non-interactively; doesn't create new ones).
+existing migrations non-interactively; doesn't create new ones). The
+Windows desktop app applies new migrations by itself on startup — see
+[below](#windows-desktop-installer).
 
 Swapping to Postgres/MySQL later just means changing `datasource.provider`
 in `schema.prisma`, updating `DATABASE_URL`, and swapping the driver
@@ -270,8 +304,14 @@ For handing this to someone on Windows who just wants to run it — no
 Node.js, no terminal, no Docker: `electron/` wraps the app as a desktop
 app, and `electron-builder` packages it into a normal `Setup.exe` (Start
 Menu shortcut, uninstaller, the works). The database lives in the
-per-user AppData folder and is pre-seeded from `config/projects.ts` /
-`config/approvers.ts` on first launch — nothing to configure.
+per-user AppData folder, created from a pre-migrated template on first
+launch — nothing to configure.
+
+Upgrades keep existing data: on every launch the app applies any database
+migration the user's copy hasn't seen yet (shipped in `resources/migrations`),
+after first saving a full backup next to it as
+`data.db.before-<migration>.<timestamp>.bak`. If an upgrade fails, the
+error dialog names that backup.
 
 **Easiest path — GitHub Actions:** push this repo to GitHub and either
 wait for the push-to-`main` trigger or run **Actions → Build Windows
@@ -298,8 +338,9 @@ project, specifically so it can never touch your own working
 `node_modules`; it double-checks that with a checksum before finishing
 and refuses to continue if anything unexpected changed.
 
-To customize the desktop build: app name/id/icon are in the `build` key
-of `package.json`; the window itself is `electron/main.js`.
+To customize the desktop build: app name/id are in the `build` key of
+`package.json` (the icon is `electron/icon.ico` — see [App icon](#app-icon));
+the window itself is `electron/main.js`.
 
 ## Tech stack
 

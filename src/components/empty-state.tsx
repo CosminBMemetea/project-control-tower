@@ -11,7 +11,7 @@ export function EmptyState({
 }: {
   icon: LucideIcon;
   title: string;
-  description?: string;
+  description?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">

@@ -109,7 +109,7 @@ export default async function MeetingsPage({
         <CardHeader>
           <CardTitle className="text-base">Add Another Meeting</CardTitle>
           <p className="text-xs text-muted-foreground">
-            For anything beyond the 3 core meetings above — design syncs,
+            For anything beyond the {CORE_MEETING_TYPES.length} core meetings above — design syncs,
             steering committees, etc.
           </p>
         </CardHeader>

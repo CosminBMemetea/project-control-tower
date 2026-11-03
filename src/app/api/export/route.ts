@@ -7,33 +7,40 @@ import { APP_CONFIG } from "@config/app";
 // environment. Covered by the same password protection as the rest of the
 // app (src/proxy.ts), since this is a full dump of everything.
 export async function GET() {
-  const [projects, checklistQuestions, monitoringQuestions, reportTemplateSections] =
-    await Promise.all([
-      prisma.project.findMany({
-        include: {
-          quarterPresentations: true,
-          teamsMeetings: true,
-          managerApprovals: true,
-          goalProgress: true,
-          checklistSubmissions: { include: { answers: true } },
-          complianceChecks: true,
-          reports: { include: { sections: true } },
-          monitoringResponses: true,
-          risks: true,
-          healthScores: true,
-        },
-        orderBy: { name: "asc" },
-      }),
-      prisma.checklistQuestion.findMany({ orderBy: { order: "asc" } }),
-      prisma.monitoringQuestion.findMany({ orderBy: { order: "asc" } }),
-      prisma.reportTemplateSection.findMany({ orderBy: { order: "asc" } }),
-    ]);
+  const [
+    projects,
+    approvers,
+    checklistQuestions,
+    monitoringQuestions,
+    reportTemplateSections,
+  ] = await Promise.all([
+    prisma.project.findMany({
+      include: {
+        quarterPresentations: true,
+        teamsMeetings: true,
+        managerApprovals: true,
+        goalProgress: true,
+        checklistSubmissions: { include: { answers: true } },
+        complianceChecks: true,
+        reports: { include: { sections: true } },
+        monitoringResponses: true,
+        risks: true,
+        healthScores: true,
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.approver.findMany({ orderBy: { name: "asc" } }),
+    prisma.checklistQuestion.findMany({ orderBy: { order: "asc" } }),
+    prisma.monitoringQuestion.findMany({ orderBy: { order: "asc" } }),
+    prisma.reportTemplateSection.findMany({ orderBy: { order: "asc" } }),
+  ]);
 
   const payload = {
     exportedAt: new Date().toISOString(),
     appName: APP_CONFIG.name,
     data: {
       projects,
+      approvers,
       checklistQuestions,
       monitoringQuestions,
       reportTemplateSections,
