@@ -5,6 +5,8 @@
 //   2. Start the Next.js standalone server as a plain-Node child process.
 //   3. Open a window pointed at it once it's actually accepting
 //      connections, and tear the server down cleanly on quit.
+//   4. Keep it fully offline: the server listens on 127.0.0.1 only, and
+//      the window may only talk to that server (see lockToLocalServer).
 //
 // Kept as plain CommonJS (no build step of its own) since it's small and
 // runs directly under Electron's bundled Node.
@@ -17,6 +19,7 @@ const crypto = require("node:crypto");
 const { fork } = require("node:child_process");
 
 const SERVER_PORT = 17321; // uncommon, fixed — good enough for a single-user desktop app
+const APP_ORIGIN = `http://127.0.0.1:${SERVER_PORT}`;
 const isDev = !app.isPackaged;
 
 // Electron derives the per-user data folder from the app name, and the
@@ -61,12 +64,18 @@ function toFileUrl(absPath) {
 let serverProcess = null;
 let mainWindow = null;
 
-function resourcePath(...segments) {
-  // Dev: run against the repo's own .next/standalone + dev.db, so
-  // `npm run electron:dev` needs no packaging step. Packaged: everything
-  // lives under process.resourcesPath (electron-builder's extraResources).
-  const base = isDev ? path.join(__dirname, "..") : process.resourcesPath;
-  return path.join(base, ...segments);
+// Packaged: everything lives under process.resourcesPath (electron-builder's
+// extraResources). Dev: the same files where the build leaves them in the
+// repo, so `npm run electron:start` needs no packaging step.
+const DEV_RESOURCE_DIRS = {
+  standalone: path.join(__dirname, "..", ".next", "standalone"),
+  migrations: path.join(__dirname, "..", "prisma", "migrations"),
+  "template.db": path.join(__dirname, "template.db"),
+};
+
+function resourcePath(first, ...rest) {
+  if (!isDev) return path.join(process.resourcesPath, first, ...rest);
+  return path.join(DEV_RESOURCE_DIRS[first] ?? path.join(__dirname, "..", first), ...rest);
 }
 
 // The database always lives in the OS's per-user app-data folder, never
@@ -214,6 +223,7 @@ function startServer() {
       PORT: String(SERVER_PORT),
       HOSTNAME: "127.0.0.1",
       NODE_ENV: "production",
+      NEXT_TELEMETRY_DISABLED: "1",
       DATABASE_URL: toFileUrl(dbPath),
     },
     // Piped (not "ignore") in production too, so a server-side crash
@@ -246,6 +256,33 @@ function startServer() {
   });
 }
 
+function isAppUrl(url) {
+  return url === APP_ORIGIN || url.startsWith(`${APP_ORIGIN}/`);
+}
+
+// Links the user clicks (evidence links, meeting links, the checklist's
+// Email button) open in the OS's own browser or mail app. Only these
+// protocols — never file:, smb: or anything else that could launch a
+// program.
+function openOutside(url) {
+  if (/^(https?|mailto):/i.test(url)) shell.openExternal(url);
+}
+
+// Offline by construction: the window may only load from the app's own
+// local server. Anything else — a remote image, script, font or tracking
+// pixel — is refused before it leaves the machine, and logged.
+function lockToLocalServer(session) {
+  // Electron's spellchecker downloads its dictionaries from Google's
+  // servers on Windows — the one request it would make on its own. Off for
+  // the whole session, not just the window, so it never initializes.
+  session.setSpellCheckerEnabled(false);
+  session.webRequest.onBeforeRequest((details, callback) => {
+    const allowed = isAppUrl(details.url) || /^(devtools|data|blob):/.test(details.url);
+    if (!allowed) log("Blocked outside request:", details.url);
+    callback({ cancel: !allowed });
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -254,18 +291,25 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      spellcheck: false, // see lockToLocalServer
     },
   });
+  lockToLocalServer(mainWindow.webContents.session);
 
   mainWindow.once("ready-to-show", () => mainWindow.show());
-  mainWindow.loadURL(`http://127.0.0.1:${SERVER_PORT}`);
+  mainWindow.loadURL(APP_ORIGIN);
 
-  // Anything that isn't a link to the app itself (e.g. an evidence/link
-  // field pointing out at an external site) opens in the OS's real
-  // browser instead of inside the app window.
+  // Links to anywhere but the app itself open outside it (see openOutside)
+  // — both new-window links and plain ones, which would otherwise
+  // navigate the app window away.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    openOutside(url);
     return { action: "deny" };
+  });
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    if (isAppUrl(url)) return;
+    event.preventDefault();
+    openOutside(url);
   });
 
   mainWindow.on("closed", () => {

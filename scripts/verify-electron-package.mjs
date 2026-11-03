@@ -54,8 +54,15 @@ if (existsSync(nodeModulesDir)) {
   ok = false;
 }
 
+// The installer must never carry a developer's local settings or secrets.
+const leakedEnv = existsSync(standaloneDir)
+  ? readdirSync(standaloneDir).filter((f) => f.startsWith(".env"))
+  : [];
+console.log(`\n${leakedEnv.length ? "LEAKED " : "OK      "}no .env files in standalone/: ${leakedEnv.join(", ") || "none"}`);
+if (leakedEnv.length) ok = false;
+
 if (!ok) {
-  console.error("\n✖ Packaged output verification FAILED — see MISSING lines above.");
+  console.error("\n✖ Packaged output verification FAILED — see MISSING / LEAKED lines above.");
   process.exit(1);
 }
 console.log("\n✔ Packaged output looks complete.");

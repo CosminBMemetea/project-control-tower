@@ -48,11 +48,27 @@ managed entirely in the app — no config files or seed runs needed.
   (`Project-Control-Tower-Setup-1.0.0.exe`). Windows now shows the
   publisher, version and description in the installer's properties and in
   Apps & features.
+- **Fully offline and private by design.** No internet connection is
+  needed, from install onwards, and nothing is sent anywhere: the window
+  can only talk to the app's own local server (which other computers can't
+  reach), fonts and icons are bundled, and Electron's spellchecker — which
+  would download dictionaries from Google — is off. Verified with all
+  outbound network blocked: the full test suite passes with zero outside
+  requests, DNS lookups or connections.
+- Links you click open in your own browser or mail app; anything else
+  (files, programs) is never opened.
 - **Upgrades keep your data.** On startup the app applies any database
   update it hasn't seen yet, after saving a full backup next to the
   database (`data.db.before-….bak`). If an update ever fails, the error
   names that backup.
 - Installs from 0.1.x keep using their existing data folder.
+
+### Fixed
+
+- Installers built on a developer's machine could include that machine's
+  `.env` file, passwords and all. The build now strips it and refuses to
+  package one.
+- `npm run electron:start` couldn't find the app's server in development.
 
 ### Heads-up when upgrading
 

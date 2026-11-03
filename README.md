@@ -257,6 +257,38 @@ roles. It's meant to keep an internal demo from being wide open on a public
 URL — not a substitute for real authentication if you need per-user access
 control, put the app behind your own SSO/VPN instead.
 
+## Offline & privacy
+
+The desktop app works with no internet connection at all, from the first
+launch, and sends nothing anywhere:
+
+- **Everything stays on your computer.** The database is one file in your
+  user folder (`%APPDATA%\Project Control Tower\data.db`), and the app's
+  built-in server listens on `127.0.0.1` only, so other machines on your
+  network can't reach it.
+- **The app window can only talk to that local server.** Any other request
+  — a remote image, script, font or tracking pixel — is refused before it
+  leaves the machine (`lockToLocalServer` in `electron/main.js`). Fonts and
+  icons are bundled, and Electron's spellchecker, which would download
+  dictionaries from Google, is off.
+- **No telemetry, analytics, crash reporting or update checks.**
+- **Only things you do yourself leave the app:** clicking an evidence or
+  meeting link opens it in your own browser (only `http(s)` and `mailto`
+  links are opened, never files or programs), and the checklist's Email
+  button opens your mail app.
+
+As a web app (`npm run start`), the server listens on every network
+interface by default so colleagues can reach it — set `APP_PASSWORD`, or
+start it with `npm run start -- -H 127.0.0.1` to keep it to your own
+machine. If you configure SMTP, checklist emails go out through your mail
+server; nothing else is sent.
+
+For developers: the Next.js and Prisma CLIs send anonymous usage stats
+while building by default. Turn them off with `npx next telemetry disable`
+and `CHECKPOINT_DISABLE=1` (CI already does both). Installers never include
+a local `.env` — the build strips it and the packaging check fails if one
+slips through.
+
 ## Optional: sending email
 
 The Reporting Checklist works with **zero configuration** — recipients get

@@ -50,6 +50,7 @@ import {
   copyFileSync,
   writeFileSync,
   readFileSync,
+  readdirSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
 import os from "node:os";
@@ -106,6 +107,13 @@ step("2/5 copy static assets into the standalone output", () => {
   const publicDir = path.join(root, "public");
   if (existsSync(publicDir)) {
     cpSync(publicDir, path.join(standaloneDir, "public"), { recursive: true });
+  }
+  // `next build` copies the project's .env files into the standalone
+  // output. A developer's .env (SMTP password, APP_PASSWORD, ...) must never
+  // ship inside an installer — the desktop app gets its settings from
+  // electron/main.js instead. verify-electron-package.mjs double-checks.
+  for (const file of readdirSync(standaloneDir)) {
+    if (file.startsWith(".env")) rmSync(path.join(standaloneDir, file), { force: true });
   }
 });
 
