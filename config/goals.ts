@@ -1,0 +1,48 @@
+// Central place to rename the 6 goal tracks (and the "Leadership Endorsement"
+// / stretch tier) shown throughout the app — Portfolio Overview, each
+// project's tabs, the Sign-offs page, etc. Edit the label strings freely
+// to match your organization's own process names.
+//
+// Do NOT rename the keys in GOAL_TYPES (ENVIRONMENT_SETUP, ...) once you
+// have real data — they're the stable identifiers stored in the database.
+// Renaming a key here would orphan existing GoalProgress rows; only the
+// LABEL text is meant to be customized.
+
+export const GOAL_TYPES = [
+  "ENVIRONMENT_SETUP",
+  "PLANNING_TRACKING",
+  "MEETING_CADENCE",
+  "REPORTING_CHECKLIST",
+  "PERIODIC_REPORTING",
+  "EXECUTION_ASSURANCE",
+] as const;
+
+export type GoalType = (typeof GOAL_TYPES)[number];
+
+export const GOAL_LABELS: Record<GoalType, string> = {
+  ENVIRONMENT_SETUP: "Environment Setup & Rules",
+  PLANNING_TRACKING: "Planning & Tracking",
+  MEETING_CADENCE: "Meeting Cadence",
+  REPORTING_CHECKLIST: "Status Check-ins",
+  PERIODIC_REPORTING: "Delivery Updates",
+  EXECUTION_ASSURANCE: "Execution Assurance",
+};
+
+export const GOAL_SHORT_LABELS: Record<GoalType, string> = {
+  ENVIRONMENT_SETUP: "Environment & Rules",
+  PLANNING_TRACKING: "Planning & Tracking",
+  MEETING_CADENCE: "Meetings & Cadence",
+  REPORTING_CHECKLIST: "Check-ins",
+  PERIODIC_REPORTING: "Updates",
+  EXECUTION_ASSURANCE: "Execution",
+};
+
+// The optional "stretch" tier above 100% completion — an extra sign-off
+// step for projects with extended scope or investment. The label and
+// description are cosmetic: rename or reword freely. The level is the top
+// entry of GOAL_LEVELS (src/lib/constants.ts) and is what's stored on each
+// GoalProgress row that reached it — don't change it once you have data.
+export const EXECUTIVE_APPROVAL_LEVEL = 120;
+export const EXECUTIVE_APPROVAL_LABEL = "Leadership Endorsement";
+export const EXECUTIVE_APPROVAL_DESCRIPTION =
+  "Full alignment and leadership endorsement for extended scope";

@@ -1,0 +1,32 @@
+Project Control Tower {{VERSION}} — how to install
+====================================================
+
+This ZIP holds the Windows installer, {{EXE}}.
+It isn't code-signed yet (see the code signing policy below), so Windows
+SmartScreen doesn't recognise it. Two ways to install it:
+
+A) Check it, then unblock it (no warning)
+   1. Check the installer is the original. In PowerShell, in this folder:
+        (Get-FileHash ".\{{EXE}}").Hash
+      must print:
+        {{SHA256}}
+      (the same value is listed on the release page).
+   2. Right-click the installer -> Properties -> tick "Unblock" -> OK.
+      Only do this for an installer that passed step 1.
+   3. Run the installer.
+
+B) Or just run it
+   Run the installer, and at "Windows protected your PC" click
+   "More info" -> "Run anyway".
+
+In the installer, choose "Only for me": it installs for your user only and
+needs no administrator rights. Installing over an earlier version keeps
+your data.
+
+The app works fully offline and sends nothing anywhere.
+To uninstall: Windows Settings -> Apps -> Installed apps -> Project Control
+Tower. Your data stays in %APPDATA%\Project Control Tower until you delete
+that folder.
+
+Release page: https://github.com/CosminBMemetea/project-control-tower/releases
+Code signing policy: https://github.com/CosminBMemetea/project-control-tower/blob/main/CODE_SIGNING.md

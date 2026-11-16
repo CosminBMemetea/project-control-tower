@@ -1,0 +1,194 @@
+name: Build Windows installer
+
+# Runs on Windows so the native better-sqlite3 rebuild targets Windows
+# for free (node-gyp/electron-rebuild just use whatever platform they're
+# running on) — no cross-compilation needed. Manual trigger, or
+# automatically on push to main.
+#
+# Pinned to windows-2022 rather than windows-latest: node-gyp (bundled
+# with npm on Node 20) doesn't recognize the Visual Studio version
+# preinstalled on newer runner images ("unknown version... found at
+# Visual Studio 18"), so it can't even fall back to compiling
+# better-sqlite3 from source when no prebuilt binary matches. windows-2022
+# is the well-established image without this gap.
+#
+# Pushing a version tag (e.g. `git tag v1.0.0 && git push origin v1.0.0`)
+# also publishes a GitHub Release with the installer attached and that
+# version's section of CHANGELOG.md as its notes. The tag must match
+# package.json's version, so a release can't ship under the wrong number.
+#
+# Code signing goes through SignPath (see CODE_SIGNING.md) once the
+# SIGNPATH_ORGANIZATION_ID repository variable and SIGNPATH_API_TOKEN
+# secret exist; until then builds are unsigned, with a warning.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+# Build tooling only: Next.js and Prisma send anonymous usage stats from
+# their CLIs by default. (The app itself never contacts anything — see
+# "Offline & privacy" in the README.)
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  CHECKPOINT_DISABLE: "1"
+
+jobs:
+  build:
+    runs-on: windows-2022
+    permissions:
+      contents: write # only used by the Release step, which runs on tags only
+      actions: read # lets SignPath fetch the unsigned installer from this run
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version
+        id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Check the tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          if [ "v${{ steps.version.outputs.version }}" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match package.json version ${{ steps.version.outputs.version }}"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the Windows installer
+        run: npm run dist:win
+
+      - name: Upload installer artifact
+        id: unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: Project-Control-Tower-Setup
+          path: dist-electron/*.exe
+          if-no-files-found: error
+
+      # Tags use the release-signing policy, which waits for an approver in
+      # SignPath (hence the long timeout); every other build uses
+      # test-signing, so the pipeline is exercised before a release needs it.
+      - name: Sign the installer with SignPath
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'project-control-tower' }}
+          signing-policy-slug: ${{ startsWith(github.ref, 'refs/tags/v') && 'release-signing' || 'test-signing' }}
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          parameters: |
+            version: "${{ steps.version.outputs.version }}"
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: dist-signed
+
+      - name: Check the signature
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
+        shell: pwsh
+        run: |
+          $release = "${{ github.ref }}".StartsWith("refs/tags/v")
+          foreach ($file in Get-ChildItem dist-signed -Filter *.exe) {
+            $sig = Get-AuthenticodeSignature $file.FullName
+            Write-Host "$($file.Name): $($sig.Status) | signer: $($sig.SignerCertificate.Subject) | timestamped: $($null -ne $sig.TimeStamperCertificate)"
+            # A release must be trusted by Windows and timestamped, so the
+            # signature stays valid after the certificate itself expires.
+            if ($release -and ($sig.Status -ne "Valid" -or $sig.SignerCertificate.Subject -notmatch "SignPath Foundation" -or $null -eq $sig.TimeStamperCertificate)) {
+              Write-Error "$($file.Name) isn't validly signed and timestamped by SignPath Foundation"
+              exit 1
+            }
+          }
+
+      # A signed installer ships as-is. Until signing is in place, it ships
+      # inside a ZIP with install notes (checksum, how to unblock it): mail
+      # and download filters often refuse a bare unsigned .exe.
+      - name: Collect release files and checksums
+        id: files
+        shell: bash
+        run: |
+          mkdir -p release
+          if compgen -G "dist-signed/*.exe" > /dev/null; then
+            cp dist-signed/*.exe release/
+            (cd release && sha256sum *.exe > SHA256SUMS.txt)
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::The installer is not code-signed: SignPath isn't configured yet (see CODE_SIGNING.md). Shipping it inside a ZIP."
+            version="${{ steps.version.outputs.version }}"
+            mkdir -p zip-staging
+            cp dist-electron/*.exe zip-staging/
+            exe=$(cd zip-staging && ls *.exe)
+            sha=$(sha256sum "zip-staging/$exe" | cut -d' ' -f1)
+            sed -e "s/{{VERSION}}/$version/g" -e "s/{{EXE}}/$exe/g" -e "s/{{SHA256}}/$sha/g" \
+              .github/zip-install-notes.txt > "zip-staging/HOW TO INSTALL.txt"
+            zip="Project-Control-Tower-Setup-$version.zip"
+            pwsh -NoProfile -Command "Compress-Archive -Path 'zip-staging/*' -DestinationPath 'release/$zip'"
+            # Prove the ZIP round-trips: same installer, notes included.
+            pwsh -NoProfile -Command "Expand-Archive 'release/$zip' -DestinationPath zip-check"
+            [ "$(sha256sum "zip-check/$exe" | cut -d' ' -f1)" = "$sha" ] || { echo "::error::Installer inside the ZIP differs"; exit 1; }
+            grep -q "$sha" "zip-check/HOW TO INSTALL.txt" || { echo "::error::Install notes missing the checksum"; exit 1; }
+            (cd release && sha256sum "$zip" > SHA256SUMS.txt)
+            echo "$sha  $exe (inside the ZIP)" >> release/SHA256SUMS.txt
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
+          cat release/SHA256SUMS.txt
+
+      - name: Upload release files artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Project-Control-Tower-release-files
+          path: release/
+          if-no-files-found: error
+
+      - name: Write the release notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::No '## [$version]' section in CHANGELOG.md"
+            exit 1
+          fi
+          file=$(cd release && { compgen -G "*.zip" || compgen -G "*.exe"; })
+          sha=$(head -1 release/SHA256SUMS.txt | cut -d' ' -f1)
+          policy="${{ github.server_url }}/${{ github.repository }}/blob/main/CODE_SIGNING.md"
+          {
+            echo
+            echo "### Download"
+            echo
+            if [ "${{ steps.files.outputs.signed }}" = "true" ]; then
+              echo "Run \`$file\` and choose **Only for me** — no administrator rights needed. Installing over an earlier version keeps your data."
+              echo
+              echo "SHA-256: \`$sha\` (compare with \`Get-FileHash .\\$file\` in PowerShell)."
+              echo
+              echo "[Code signing policy]($policy): free code signing provided by SignPath.io, certificate by SignPath Foundation."
+            else
+              echo "Download \`$file\` and extract it, then follow **HOW TO INSTALL.txt** inside: check the installer's SHA-256, unblock it, run it and choose **Only for me** — no administrator rights needed. Installing over an earlier version keeps your data."
+              echo
+              echo "SHA-256 of the ZIP: \`$sha\` (compare with \`Get-FileHash .\\$file\` in PowerShell); \`SHA256SUMS.txt\` also lists the installer inside."
+              echo
+              echo "The installer isn't code-signed yet, which is why it comes zipped — Windows SmartScreen doesn't recognise unsigned apps. [Code signing policy]($policy)"
+            fi
+          } >> release-notes.md
+          cat release-notes.md | tail -8
+
+      - name: Publish the GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Project Control Tower ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: release/*
+          fail_on_unmatched_files: true

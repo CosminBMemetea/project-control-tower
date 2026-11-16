@@ -1,0 +1,308 @@
+// Project portfolio governance & reporting — Prisma schema.
+// Configure branding in config/app.ts and goal track names in
+// config/goals.ts; this schema itself is deployment-agnostic.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Project {
+  id     String @id @default(cuid())
+  name   String
+  code   String @unique
+  status String @default("ACTIVE") // INITIATING | PLANNING | ACTIVE (shown as "Ongoing") | ON_HOLD | CLOSING | CLOSED | CANCELLED — see PROJECT_STATUSES
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Environment Setup & Rules
+  gitRepoUrl         String?
+  codebeamerUrl       String?
+  wowPresentationUrl String?
+  envSetupDocUrl     String?
+  onboardingGuideUrl String?
+
+  // Structure Hierarchy planning checkboxes (Environment & Rules tab)
+  epicsPlanned       Boolean @default(false)
+  userStoriesPlanned Boolean @default(false)
+  tasksPlanned       Boolean @default(false)
+  sprintsDefined     Boolean @default(false)
+
+  // Resources
+  allocatedFte Float @default(0)
+
+  // RAG status — current delivery health, changeable any time
+  ragStatus   String    @default("GREEN") // RED | AMBER | GREEN
+  ragComment  String? // optional short reason for the current status
+  ragUpdatedAt DateTime?
+
+  quarterPresentations QuarterPresentation[]
+  teamsMeetings        TeamsMeeting[]
+  managerApprovals     ManagerApproval[]
+  goalProgress         GoalProgress[]
+  checklistSubmissions ChecklistSubmission[]
+  complianceChecks     ComplianceCheck[]
+  reports              Report[]
+  monitoringResponses  MonitoringResponse[]
+  risks                Risk[]
+  healthScores         ProjectHealth[]
+}
+
+// Project Health Spider Web — one score (1-5) + optional comment per
+// dimension (Scope/Schedule/Cost/Risk/Quality/Resources), rendered as a
+// radar chart. Seeded to a neutral 3 for every project so the chart is
+// never an empty/degenerate shape before anyone has scored it.
+model ProjectHealth {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  dimension String // SCOPE | SCHEDULE | COST | RISK | QUALITY | RESOURCES
+  score     Int    @default(3) // 1-5, 1 = Critical, 5 = Excellent
+  comment   String?
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, dimension])
+}
+
+// Planning & Tracking: one row per quarter presentation link
+model QuarterPresentation {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  quarter String // e.g. "2026-Q1"
+  url     String
+
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, quarter])
+}
+
+// Meeting Map & Cadence
+model TeamsMeeting {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  type  String // WEEKLY | SPRINT_REVIEW | RETRO | OTHER
+  label String? // custom name, mainly for OTHER
+  url   String
+
+  dayOfWeek String? // MONDAY..SUNDAY, for computing the next occurrence
+  time      String? // free-text display value, e.g. "10:00"
+
+  recurrenceType  String? // WEEKLY | BIWEEKLY | EVERY_3_WEEKS | MONTHLY | CUSTOM
+  recurrenceLabel String? // free text, only used when recurrenceType = CUSTOM
+
+  lastOccurredAt DateTime?
+}
+
+// The roster of people who sign off on the Leadership Endorsement tier —
+// managed on the Sign-offs page. Every project gets one ManagerApproval
+// row per approver, matched by name (renaming an approver renames those
+// rows too). config/approvers.ts only seeds an empty roster.
+model Approver {
+  id   String @id @default(cuid())
+  name String @unique
+
+  createdAt DateTime @default(now())
+}
+
+// Leadership Endorsement (the stretch tier) — see config/goals.ts
+model ManagerApproval {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  managerName String
+  approved    Boolean   @default(false)
+  approvedAt  DateTime?
+  comment     String?
+}
+
+// Cumulative coverage level (0, 25, 50, 75, 100, 120) per goal track
+model GoalProgress {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  goalType    String // ENVIRONMENT_SETUP | PLANNING_TRACKING | MEETING_CADENCE | REPORTING_CHECKLIST | PERIODIC_REPORTING | EXECUTION_ASSURANCE
+  level       Int    @default(0) // 0 | 25 | 50 | 75 | 100 | 120
+  evidenceUrl String?
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, goalType])
+}
+
+// The Status Check-ins questions, stored once, shared across projects
+// and edited from any project's Checklist tab. A removed question is
+// archived rather than deleted, so answers already given keep the
+// question they were answering.
+model ChecklistQuestion {
+  id       String  @id @default(cuid())
+  order    Int     @unique
+  text     String
+  archived Boolean @default(false)
+
+  answers ChecklistAnswer[]
+}
+
+// One "Send Checklist" event: emailed to recipientEmail, answered via the
+// unguessable /checklist-response/[token] link (no login required — the
+// token is the credential). Verification is expected at least every 2
+// weeks; see computeChecklistStatus.
+model ChecklistSubmission {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  recipientEmail String
+  token          String @unique
+
+  sentAt      DateTime  @default(now())
+  submittedAt DateTime?
+
+  answers ChecklistAnswer[]
+}
+
+model ChecklistAnswer {
+  id String @id @default(cuid())
+
+  submissionId String
+  submission   ChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   ChecklistQuestion @relation(fields: [questionId], references: [id])
+
+  answer String?
+
+  @@unique([submissionId, questionId])
+}
+
+// The Monitoring questions, stored once, shared across projects and edited
+// from any project's Monitoring tab — simple per-project checkboxes, never
+// emailed. Removing a question deletes its checkboxes too.
+model MonitoringQuestion {
+  id    String @id @default(cuid())
+  order Int    @unique
+  text  String
+
+  responses MonitoringResponse[]
+}
+
+model MonitoringResponse {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   MonitoringQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  checked   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, questionId])
+}
+
+// The customizable report template: an ordered, editable list of sections
+// every report is built from (Wins, Roadblocks, ...). Edit this list
+// via the Report Blueprint page — no code changes needed to add, rename,
+// reorder, or remove a section.
+model ReportTemplateSection {
+  id String @id @default(cuid())
+
+  order    Int     @unique
+  label    String
+  hasLinks Boolean @default(false) // shows a "links" field too (e.g. Shipped This Sprint)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries ReportSectionEntry[]
+}
+
+// One report for one project, covering a specific date. Reports can be
+// created retroactively for any past date — there's no "current period"
+// restriction.
+model Report {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  type       String // MID_MONTH | END_MONTH | WEEKLY | CUSTOM
+  reportDate DateTime
+  title      String? // optional label, mainly useful for CUSTOM reports
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sections ReportSectionEntry[]
+}
+
+// The content of one template section within one report. Rows are
+// created on demand as sections are filled in / as the template grows.
+model ReportSectionEntry {
+  id String @id @default(cuid())
+
+  reportId String
+  report   Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  sectionId String
+  section   ReportTemplateSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  content String? // free text
+  links   String? // one link per line, only shown when section.hasLinks
+
+  @@unique([reportId, sectionId])
+}
+
+// Per-project Risk Watchlist entry
+model Risk {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+
+  impact      String // HIGH | MEDIUM | LOW
+  probability String // HIGH | MEDIUM | LOW
+  status      String @default("OPEN") // OPEN | MITIGATING | CLOSED
+  owner       String
+
+  mitigationPlan String?
+  identifiedAt   DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Execution Assurance: compliance checks + deviations
+model ComplianceCheck {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  description   String
+  compliant     Boolean  @default(true)
+  checkedAt     DateTime @default(now())
+  deviationNote String?
+}

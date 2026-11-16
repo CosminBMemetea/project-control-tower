@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#312E81"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E0F2FE"/>
+      <stop offset="1" stop-color="#7DD3FC"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FCD34D" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#FCD34D" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="232" fill="url(#bg)"/>
+
+  <g transform="translate(0 24)">
+
+  <!-- radar sweep from the beacon -->
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-width="26">
+    <path d="M 618 132 A 120 120 0 0 1 618 268" opacity="0.7"/>
+    <path d="M 406 132 A 120 120 0 0 0 406 268" opacity="0.7"/>
+    <path d="M 680 84 A 200 200 0 0 1 680 316" opacity="0.38"/>
+    <path d="M 344 84 A 200 200 0 0 0 344 316" opacity="0.38"/>
+  </g>
+
+  <!-- beacon -->
+  <circle cx="512" cy="200" r="92" fill="url(#glow)"/>
+  <circle cx="512" cy="200" r="38" fill="#FBBF24"/>
+
+  <!-- mast + roof -->
+  <rect x="497" y="232" width="30" height="96" rx="15" fill="#FFFFFF"/>
+  <path d="M 408 324 H 616 L 652 376 H 372 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="16" stroke-linejoin="round"/>
+
+  <!-- glass cab: wider at the top, like a real tower -->
+  <path d="M 356 392 H 668 L 628 508 H 396 Z" fill="url(#glass)" stroke="#FFFFFF" stroke-width="20" stroke-linejoin="round"/>
+  <g stroke="#FFFFFF" stroke-width="14" stroke-linecap="round">
+    <line x1="460" y1="400" x2="470" y2="500"/>
+    <line x1="564" y1="400" x2="554" y2="500"/>
+  </g>
+
+  <!-- deck, shaft, base -->
+  <rect x="380" y="516" width="264" height="36" rx="12" fill="#FFFFFF"/>
+  <path d="M 452 560 H 572 L 602 846 H 422 Z" fill="#FFFFFF"/>
+  <rect x="300" y="842" width="424" height="40" rx="20" fill="#FFFFFF"/>
+  </g>
+</svg>
